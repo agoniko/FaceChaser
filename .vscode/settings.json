@@ -1,0 +1,7 @@
+{
+    "arduino.enableUSBDetection": false,
+    "arduino.additionalUrls": [
+        "/Users/nicoloagostara/Documents/Arduino",
+        "/Users/nicoloagostara/Documents/Arduino/libraries"
+    ]
+}
