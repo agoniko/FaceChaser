@@ -10,7 +10,7 @@ class Person:
         self.similarity = similarity
 
     def update(self, bbox, embedding, similarity=-1):
-        self.bbox = bbox
+        self.bbox = bbox.copy()
         self.pos = get_bbox_center(bbox)
         self.embedding = embedding
         self.similarity = similarity
