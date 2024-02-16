@@ -1,4 +1,3 @@
-from matlab_cp2tform import get_similarity_transform_for_cv2
 import numpy as np
 import cv2
 from Person import Person
@@ -12,25 +11,6 @@ def timethis(func):
         print(f'{func.__name__} took {(t2 - t1)*1000:.3f} ms')
         return res
     return wrapper
-
-
-def alignment(src_img, src_pts):
-    ref_pts = [
-        [30.2946, 51.6963],
-        [65.5318, 51.5014],
-        [48.0252, 71.7366],
-        [33.5493, 92.3655],
-        [62.7299, 92.2041],
-    ]
-    crop_size = (96, 112)
-    src_pts = np.array(src_pts).reshape(5, 2)
-
-    s = np.array(src_pts).astype(np.float32)
-    r = np.array(ref_pts).astype(np.float32)
-
-    tfm = get_similarity_transform_for_cv2(s, r)
-    face_img = cv2.warpAffine(src_img, tfm, crop_size)
-    return face_img
 
 
 def display_results(

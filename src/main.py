@@ -3,7 +3,7 @@ import cv2
 from datetime import datetime
 import numpy as np
 from AI_engine import Engine
-from helper_functions import display_results
+from utils import display_results
 from Arduino import Arduino
 
 

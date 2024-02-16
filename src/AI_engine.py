@@ -1,20 +1,16 @@
 from Person import Person
 import numpy as np
 import cv2
-from matlab_cp2tform import get_similarity_transform_for_cv2
 from facenet_pytorch import InceptionResnetV1
 from tqdm import tqdm
-import os
-import sys
 import copy
+from utils import timethis
 
-sys.path.append("sphereface_pytorch")
 # inside retinaFace implementation, changed device management to be aligned with the rest of the code
 # (you have to pass the string name to the constructor)
 import torch
 import torch.nn.functional as F
 from batch_face import RetinaFace
-from net_sphere import sphere20a
 from torchvision.transforms import Resize, Lambda, Compose
 
 emb_transform = Compose(
@@ -27,7 +23,7 @@ emb_transform = Compose(
 
 MAX_PERSONS = 10
 
-
+@timethis
 def retina_to_cv2_box(boxes):
     for box in boxes:
         xmin, ymin, xmax, ymax = box
@@ -35,7 +31,7 @@ def retina_to_cv2_box(boxes):
         box[0], box[1], box[2], box[3] = xmin, ymin, w, h
     return np.array(boxes)
 
-
+@timethis
 def retina_to_cv2_keypoints(keypoints):
     # we have to swap keypoints 0 and 1 and 3 and 4
     for keypoint in keypoints:
@@ -65,6 +61,7 @@ class Engine(metaclass=Singleton):
         )
         self.target = None
 
+    @timethis
     def _detect_faces(self, img_rgb: np.ndarray, threshold: float = 0.7) -> list:
         with torch.no_grad():
             pred = self.detector(img_rgb)
@@ -96,6 +93,7 @@ class Engine(metaclass=Singleton):
 
             return embs, sims
 
+    @timethis
     def _SFace(self, img_rgb, bboxes, keypoints, scores):
         assert len(bboxes) == len(keypoints) == len(scores)
         bboxes = retina_to_cv2_box(bboxes)
