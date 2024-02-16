@@ -2,4 +2,5 @@ src/model
 src/sphereface_pytorch
 **/venv
 **/__pycache__
-.vscode
+**/.vscode
+**/.DS_Store
