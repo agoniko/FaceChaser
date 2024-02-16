@@ -2,6 +2,16 @@ from matlab_cp2tform import get_similarity_transform_for_cv2
 import numpy as np
 import cv2
 from Person import Person
+import time
+
+def timethis(func):
+    def wrapper(*args, **kwargs):
+        t1 = time.time()
+        res = func(*args, **kwargs)
+        t2 = time.time()
+        print(f'{func.__name__} took {(t2 - t1)*1000:.3f} ms')
+        return res
+    return wrapper
 
 
 def alignment(src_img, src_pts):
