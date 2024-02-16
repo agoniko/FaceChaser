@@ -23,6 +23,7 @@ emb_transform = Compose(
 
 MAX_PERSONS = 10
 
+
 @timethis
 def retina_to_cv2_box(boxes):
     for box in boxes:
@@ -30,6 +31,7 @@ def retina_to_cv2_box(boxes):
         w, h = xmax - xmin, ymax - ymin
         box[0], box[1], box[2], box[3] = xmin, ymin, w, h
     return np.array(boxes)
+
 
 @timethis
 def retina_to_cv2_keypoints(keypoints):
@@ -53,9 +55,6 @@ class Engine(metaclass=Singleton):
     def __init__(self, device: str = "mps"):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
-        # self.emb_model = InceptionResnetV1(pretrained="vggface2").eval()
-        # self.emb_model = self.emb_model.to(device)
-
         self.sface = cv2.FaceRecognizerSF_create(
             "./model/face_recognizer_fast.onnx", ""
         )
@@ -72,29 +71,28 @@ class Engine(metaclass=Singleton):
                 [p[2] for p in pred if p[2] > threshold],
             )
 
-    def _get_embeddings(self, img_rgb, keypoints: list) -> np.ndarray:
-        aligned = np.array([self._alignment(img_rgb, k)[0] for k in keypoints])
-        num_persons = len(aligned)
-        # This placeholders increase (A lot) the inference time.
-        # With a variable batch size (number of persons in the frame), when adding e.g. 5 person in the frame the computation
-        # increases and the video streams stops for a while. Whith placeholders the overall computation may be slower but the
-        # video stream is not interrupted and the computation is more stable.
-        placeholders = np.zeros((MAX_PERSONS, 112, 96, 3))
-        placeholders[:num_persons] = aligned
-        with torch.no_grad():
-            embs = self.emb_model(emb_transform(placeholders).to(self.device))
-            embs = embs[:num_persons]
-            # embs = torch.tensor(embs)
-            if self.target is not None:
-                sims = F.cosine_similarity(embs, self.target, dim=-1)
-                # sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
-            else:
-                sims = -torch.ones(num_persons).to(self.device)
+    # def _get_embeddings(self, img_rgb, keypoints: list) -> np.ndarray:
+    #    aligned = np.array([self._alignment(img_rgb, k)[0] for k in keypoints])
+    #    num_persons = len(aligned)
+    #    # This placeholders increase (A lot) the inference time.
+    #    # With a variable batch size (number of persons in the frame), when adding e.g. 5 person in the frame the computation
+    #    # increases and the video streams stops for a while. Whith placeholders the overall computation may be slower but the
+    #    # video stream is not interrupted and the computation is more stable.
+    #    placeholders = np.zeros((MAX_PERSONS, 112, 96, 3))
+    #    placeholders[:num_persons] = aligned
+    #    with torch.no_grad():
+    #        embs = self.emb_model(emb_transform(placeholders).to(self.device))
+    #        embs = embs[:num_persons]
+    #        # embs = torch.tensor(embs)
+    #        if self.target is not None:
+    #            sims = F.cosine_similarity(embs, self.target, dim=-1)
+    #            # sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
+    #        else:
+    #            sims = -torch.ones(num_persons).to(self.device)
+    #
+    #        return embs, sims
 
-            return embs, sims
-
-    @timethis
-    def _SFace(self, img_rgb, bboxes, keypoints, scores):
+    def _create_faces(self, bboxes, keypoints, scores):
         assert len(bboxes) == len(keypoints) == len(scores)
         bboxes = retina_to_cv2_box(bboxes)
         keypoints = retina_to_cv2_keypoints(keypoints)
@@ -103,6 +101,11 @@ class Engine(metaclass=Singleton):
         scores = np.array(scores).reshape(-1)
 
         faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
+        return faces
+
+    @timethis
+    def _get_embeddings_SFace(self, img_rgb, bboxes, keypoints, scores):
+        faces = self._create_faces(bboxes, keypoints, scores)
         embs = []
 
         for face in faces:
@@ -125,7 +128,7 @@ class Engine(metaclass=Singleton):
             return []
 
         # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
-        embs, sims = self._SFace(
+        embs, sims = self._get_embeddings_SFace(
             img_rgb,
             copy.deepcopy(pred_bboxes),
             copy.deepcopy(pred_keypoints),
