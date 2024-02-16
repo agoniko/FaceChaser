@@ -1,6 +1,6 @@
 import time
 
-def timethis(func, number=1000):
+def timethis(func):
     def wrapper(*args, **kwargs):
         t1 = time.time()
         res = func(*args, **kwargs)
