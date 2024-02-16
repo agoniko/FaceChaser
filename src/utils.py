@@ -3,6 +3,17 @@ import cv2
 from Person import Person
 import time
 
+class TimingInfoSingleton:
+    def __new__(cls):
+        """ creates a singleton object, if it is not created, 
+        or else returns the previous singleton object"""
+        if not hasattr(cls, 'instance'):
+            cls.instance = super().__new__(cls)
+        return cls.instance
+    
+    def __init__(self):
+        self.info = []
+
 def timethis(func):
     def wrapper(*args, **kwargs):
         t1 = time.time()
