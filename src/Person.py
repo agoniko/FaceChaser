@@ -1,19 +1,28 @@
-def get_bbox_center(bbox):
-    return (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+from torch import Tensor
+from typing import Tuple
+import torch.nn.functional as F
 
 
 class Person:
-    def __init__(self, bbox, embedding, similarity=-1):
+    def __init__(self, embedding: Tensor, bbox: Tensor):
+        self.identity = Identity(embedding)
         self.bbox = bbox
-        self.pos = get_bbox_center(bbox)
-        self.embedding = embedding
-        self.similarity = similarity
 
-    def update(self, bbox, embedding, similarity=-1):
-        self.bbox = bbox.copy()
-        self.pos = get_bbox_center(bbox)
-        self.embedding = embedding
-        self.similarity = similarity
-    
-    def __lt__(self, other):
-        return (self.bbox[0] + self.bbox[2]) < (other.bbox[0] + other.bbox[2])
+    def get_coords(self) -> Tuple[float, float, float]:
+        # TODO implement z
+        x = (self.bbox[0] + self.bbox[2]) / 2
+        y = (self.bbox[1] + self.bbox[3]) / 2
+        z = 0
+        return x, y, z
+
+
+class Identity:
+    def __init__(self, embedding: Tensor):
+        self.embedding = embedding.clone()
+
+    def similarity(self, embeddings: Tensor) -> Tensor:
+        "returns a tensor of similarity scores between self and the target embeddings"
+        return F.cosine_similarity(embeddings, self.embedding, dim=-1)
+
+    def update(self, embedding: Tensor):
+        self.embedding = embedding.clone()

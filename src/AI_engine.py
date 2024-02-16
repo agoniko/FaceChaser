@@ -74,26 +74,7 @@ class Engine(metaclass=Singleton):
                 [p[2] for p in pred if p[2] > threshold],
             )
 
-    # def _get_embeddings(self, img_rgb, keypoints: list) -> np.ndarray:
-    #    aligned = np.array([self._alignment(img_rgb, k)[0] for k in keypoints])
-    #    num_persons = len(aligned)
-    #    # This placeholders increase (A lot) the inference time.
-    #    # With a variable batch size (number of persons in the frame), when adding e.g. 5 person in the frame the computation
-    #    # increases and the video streams stops for a while. Whith placeholders the overall computation may be slower but the
-    #    # video stream is not interrupted and the computation is more stable.
-    #    placeholders = np.zeros((MAX_PERSONS, 112, 96, 3))
-    #    placeholders[:num_persons] = aligned
-    #    with torch.no_grad():
-    #        embs = self.emb_model(emb_transform(placeholders).to(self.device))
-    #        embs = embs[:num_persons]
-    #        # embs = torch.tensor(embs)
-    #        if self.target is not None:
-    #            sims = F.cosine_similarity(embs, self.target, dim=-1)
-    #            # sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
-    #        else:
-    #            sims = -torch.ones(num_persons).to(self.device)
-    #
-    #        return embs, sims
+
 
     def _create_faces(self, bboxes, keypoints, scores):
         assert len(bboxes) == len(keypoints) == len(scores)
