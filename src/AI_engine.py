@@ -1,4 +1,6 @@
+from typing import Tuple, List
 import sys
+
 sys.path.append("src")
 
 from Person import Person
@@ -7,11 +9,13 @@ import cv2
 from facenet_pytorch import InceptionResnetV1
 from tqdm import tqdm
 import copy
-from utils import timethis
+import utils
+from torchvision.transforms.v2 import functional as F
 
 # inside retinaFace implementation, changed device management to be aligned with the rest of the code
 # (you have to pass the string name to the constructor)
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 from batch_face import RetinaFace
 from torchvision.transforms import Resize, Lambda, Compose
@@ -27,7 +31,7 @@ emb_transform = Compose(
 MAX_PERSONS = 10
 
 
-@timethis
+@utils.timethis
 def retina_to_cv2_box(boxes):
     for box in boxes:
         xmin, ymin, xmax, ymax = box
@@ -36,7 +40,7 @@ def retina_to_cv2_box(boxes):
     return np.array(boxes)
 
 
-@timethis
+@utils.timethis
 def retina_to_cv2_keypoints(keypoints):
     # we have to swap keypoints 0 and 1 and 3 and 4
     for keypoint in keypoints:
@@ -55,26 +59,48 @@ class Singleton(type):
 
 
 class Engine(metaclass=Singleton):
-    def __init__(self, device: str = "mps"):
+    def __init__(
+        self,
+        device: str = "mps",
+        rescale_factor: float = 1.0,
+        similarity_threshold: float = 0.6,
+        max_tracked_persons: int = 10,
+    ):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         self.sface = cv2.FaceRecognizerSF_create(
             "src/model/face_recognizer_fast.onnx", ""
         )
         self.target = None
+        self.num_faces = 0
+        self.track_with_embeddings = False
+        self.rescale_factor = rescale_factor
+        self.similarity_threshold = similarity_threshold
+        self.max_tracked_persons = max_tracked_persons
+        self.tracked_persons = [None for _ in range(self.max_tracked_persons)]
+        self.selected_person = None
+        self.random_selection = False
 
-    @timethis
-    def _detect_faces(self, img_rgb: np.ndarray, threshold: float = 0.7) -> list:
+    @utils.timethis
+    def _detect_faces(
+        self, img_rgb: np.ndarray, threshold: float = 0.7
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         with torch.no_grad():
             pred = self.detector(img_rgb)
             # if the confidence of the prediction is less than 0.7, the prediction is discarded
-            return (
-                [p[0] for p in pred if p[2] > threshold],
-                [p[1] for p in pred if p[2] > threshold],
-                [p[2] for p in pred if p[2] > threshold],
+            bboxes = np.array(
+                [p[0] for p in pred if p[2] > threshold], dtype=np.float32
             )
 
+            keypoints = np.array(
+                [p[1] for p in pred if p[2] > threshold], dtype=np.float32
+            )
 
+            scores = np.array(
+                [p[2] for p in pred if p[2] > threshold], dtype=np.float32
+            )
+
+            return bboxes, keypoints, scores
 
     def _create_faces(self, bboxes, keypoints, scores):
         assert len(bboxes) == len(keypoints) == len(scores)
@@ -87,107 +113,125 @@ class Engine(metaclass=Singleton):
         faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
         return faces
 
-    @timethis
-    def _get_embeddings_SFace(self, img_rgb, bboxes, keypoints, scores):
+    @utils.timethis
+    def _get_embeddings_SFace(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         faces = self._create_faces(bboxes, keypoints, scores)
-        embs = []
 
-        for face in faces:
-            aligned_face = self.sface.alignCrop(img_rgb, face)
-            embs.append(self.sface.feature(aligned_face))
+        return np.array(
+            [
+                self.sface.feature(self.sface.alignCrop(img_rgb, face))[0]
+                for face in faces
+            ]
+        )
 
-        embs = torch.tensor(embs).to(self.device)
-        if self.target is not None:
-            sims = F.cosine_similarity(embs, self.target, dim=-1).reshape(-1)
+    def process_frame(self, image: np.ndarray) -> np.ndarray:
+        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        img_rgb = cv2.resize(
+            img_rgb,
+            (
+                int(img_rgb.shape[1] * self.rescale_factor),
+                int(img_rgb.shape[0] * self.rescale_factor),
+            ),
+        )
+
+        pred_bboxes, pred_keypoints, pred_scores = self._detect_faces(img_rgb)
+
+        # if the number of people is changed from the last frame
+        # or if a tracked person has None as bbox (out of frame) we rely on embeddings
+        if len(pred_bboxes) != self.num_faces or any(
+            [
+                person.bbox is None
+                for person in self.tracked_persons
+                if isinstance(person, Person)
+            ]
+        ):
+            self.num_faces = len(pred_bboxes)
+            self.track_with_embeddings = True
         else:
-            sims = -torch.ones(embs.shape[0])
+            self.track_with_embeddings = False
 
-        return embs, sims.cpu().numpy()
-
-    def process_frame(self, img_rgb, persons: list[Person]):
-        pred_bboxes, pred_keypoints, pred_scores = self._detect_faces(
-            img_rgb
-        )  # returns list
         if len(pred_bboxes) == 0:
-            return []
+            return image
 
         # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
-        embs, sims = self._get_embeddings_SFace(
+        embeddings = self._get_embeddings_SFace(
             img_rgb,
             copy.deepcopy(pred_bboxes),
             copy.deepcopy(pred_keypoints),
             copy.deepcopy(pred_scores),
         )
-
+        similarities = np.array(
+            [
+                person.compare(embeddings)
+                for person in self.tracked_persons
+                if isinstance(person, Person)
+            ]
+        )
         # matches the persons of the last frame with the persons of the current frame prediction
-        self._match_and_update(persons, pred_bboxes, embs, sims)
-        # sort the persons by their x coordinate
-        persons.sort()
+        self._match_tracked_persons(
+            self.tracked_persons, pred_bboxes, embeddings, similarities
+        )
 
-        return persons
+        if self.random_selection:
+            idx = np.random.choice(range(len(pred_bboxes)))
+            self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+            self.random_selection = False
 
-    # computes the embedding of the target person and stores it in the target attribute
-    def set_target(self, person: Person) -> None:
-        self.target = person.embedding
+        if self.selected_person is not None:
+            sims = np.array([self.selected_person.compare(embeddings)])
+            self._match_tracked_persons(
+                [self.selected_person], pred_bboxes, embeddings, sims
+            )
+            if self.selected_person.bbox is None:
+                self.selected_person = None
 
-    def unset_target(self) -> None:
-        self.target = None
+        utils.display_results(
+            image,
+            pred_bboxes,
+            similarities,
+            1 / self.rescale_factor,
+            self.tracked_persons,
+            self.selected_person,
+        )
+        return image
 
-    def _match_and_update(
+    def _match_tracked_persons(
         self,
-        persons: list[Person],
-        boxes: list[tuple[int, int, int, int]],
-        embs: np.ndarray,
-        sims: np.ndarray,
+        tracked_persons: List[Person],
+        pred_bboxes: np.ndarray,
+        embeddings: np.ndarray,
+        similarities: np.ndarray,
     ) -> None:
-        assert len(boxes) == len(
-            embs
-        ), "The number of bboxes and embeddings must be the same"
-        taken = []
-        if len(persons) == 0:
-            for b, e, s in zip(boxes, embs, sims):
-                persons.append(Person(b, e, s))
-            return
-
-        for b, e, s in zip(boxes, embs, sims):
-            min_dist = np.inf
-            idx = None
-            for j, person in enumerate(persons):
-                if len(taken) > 0 and j in taken:
+        if self.track_with_embeddings:
+            i = 0
+            for person in tracked_persons:
+                if not isinstance(person, Person):
                     continue
-                dist = np.linalg.norm(person.bbox - b)
-                if dist < min_dist:
-                    min_dist = dist
-                    idx = j
+                idx = np.argmax(similarities[i])
+                best_value = similarities[i][idx]
+                if best_value > self.similarity_threshold:
+                    person.update(embeddings[idx], pred_bboxes[idx])
+                    embeddings = np.delete(embeddings, idx, axis=0)
+                    pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                    similarities = np.delete(similarities, idx, axis=1)
+                else:
+                    person.bbox = None  # person is not in the frame
+                i += 1
+        else:
+            for person in tracked_persons:
+                if not isinstance(person, Person):
+                    continue
+                dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
+                idx = np.argmin(dist)
+                person.update(embeddings[idx], pred_bboxes[idx])
+                pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                embeddings = np.delete(embeddings, idx, axis=0)
 
-            if idx is not None:
-                taken.append(idx)
-                persons[idx].update(b, e, s)
-            else:
-                persons.append(Person(b, e, s))
-                taken.append(len(persons) - 1)
+    def select_random(self) -> None:
+        self.random_selection = True
 
-        to_remove = [persons[idx] for idx in range(len(persons)) if idx not in taken]
-        for p in to_remove:
-            persons.remove(p)
+    def set_target(self, slot: int) -> None:
+        if slot >= len(self.tracked_persons):
+            raise ValueError("Slot is out of range")
 
-    def _alignment(self, src_img, src_pts):
-        ref_pts = [
-            [30.2946, 51.6963],
-            [65.5318, 51.5014],
-            [48.0252, 71.7366],
-            [33.5493, 92.3655],
-            [62.7299, 92.2041],
-        ]
-        crop_size = (96, 112)
-        src_pts = np.array(src_pts).reshape(5, 2)
-
-        s = np.array(src_pts).astype(np.float32)
-        r = np.array(ref_pts).astype(np.float32)
-
-        tfm = get_similarity_transform_for_cv2(s, r)
-        face_img = cv2.warpAffine(src_img, tfm, crop_size)
-        return np.array([face_img])
-
-    def _alignment_mine(self, src_img, src_pts):
-        pass
+        self.tracked_persons[slot] = self.selected_person.copy()
