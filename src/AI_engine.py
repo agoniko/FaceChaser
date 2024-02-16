@@ -57,24 +57,13 @@ class Engine(metaclass=Singleton):
     def __init__(self, device: str = "mps"):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
-        self.emb_model = sphere20a(feature=True)
-        self.emb_model.load_state_dict(torch.load("model/sphere20a_20171020.pth"))
-        self.emb_model = InceptionResnetV1(pretrained="vggface2").eval()
-        self.emb_model = self.emb_model.to(device)
+        # self.emb_model = InceptionResnetV1(pretrained="vggface2").eval()
+        # self.emb_model = self.emb_model.to(device)
 
         self.sface = cv2.FaceRecognizerSF_create(
             "./model/face_recognizer_fast.onnx", ""
         )
-        # self.emb_model.alignCrop()
-        # self.emb_model.eval()
         self.target = None
-        # self._warmup()
-
-    def _warmup(self):
-        sample_tensor = np.zeros((720, 400, 3))
-        self.detector(sample_tensor)
-        sample_tensor = np.zeros((1, 112, 96, 3))
-        self.emb_model(emb_transform(sample_tensor).to(self.device))
 
     def _detect_faces(self, img_rgb: np.ndarray, threshold: float = 0.7) -> list:
         with torch.no_grad():
@@ -101,7 +90,7 @@ class Engine(metaclass=Singleton):
             # embs = torch.tensor(embs)
             if self.target is not None:
                 sims = F.cosine_similarity(embs, self.target, dim=-1)
-                #sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
+                # sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
             else:
                 sims = -torch.ones(num_persons).to(self.device)
 
@@ -137,7 +126,7 @@ class Engine(metaclass=Singleton):
         if len(pred_bboxes) == 0:
             return []
 
-        #embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
+        # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
         embs, sims = self._SFace(
             img_rgb,
             copy.deepcopy(pred_bboxes),
