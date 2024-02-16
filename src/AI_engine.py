@@ -4,9 +4,9 @@ import cv2
 from matlab_cp2tform import get_similarity_transform_for_cv2
 from facenet_pytorch import InceptionResnetV1
 from tqdm import tqdm
-import time
-import threading
+import os
 import sys
+import copy
 
 sys.path.append("sphereface_pytorch")
 # inside retinaFace implementation, changed device management to be aligned with the rest of the code
@@ -17,11 +17,6 @@ from batch_face import RetinaFace
 from net_sphere import sphere20a
 from torchvision.transforms import Resize, Lambda, Compose
 
-# strange error, suppress it, [TODO] investigate
-import torch._dynamo
-
-torch._dynamo.config.suppress_errors = True
-
 emb_transform = Compose(
     [
         Lambda(lambda x: torch.from_numpy(x).float()),
@@ -31,6 +26,22 @@ emb_transform = Compose(
 )
 
 MAX_PERSONS = 10
+
+
+def retina_to_cv2_box(boxes):
+    for box in boxes:
+        xmin, ymin, xmax, ymax = box
+        w, h = xmax - xmin, ymax - ymin
+        box[0], box[1], box[2], box[3] = xmin, ymin, w, h
+    return np.array(boxes)
+
+
+def retina_to_cv2_keypoints(keypoints):
+    # we have to swap keypoints 0 and 1 and 3 and 4
+    for keypoint in keypoints:
+        keypoint[0], keypoint[1] = keypoint[1], keypoint[0]
+        keypoint[3], keypoint[4] = keypoint[4], keypoint[3]
+    return np.array(keypoints)
 
 
 class Singleton(type):
@@ -48,9 +59,14 @@ class Engine(metaclass=Singleton):
         self.detector = RetinaFace(device, network="mobilenet")
         self.emb_model = sphere20a(feature=True)
         self.emb_model.load_state_dict(torch.load("model/sphere20a_20171020.pth"))
-        #self.emb_model = InceptionResnetV1(pretrained="vggface2").eval()
+        self.emb_model = InceptionResnetV1(pretrained="vggface2").eval()
         self.emb_model = self.emb_model.to(device)
-        #self.emb_model.eval()
+
+        self.sface = cv2.FaceRecognizerSF_create(
+            "./model/face_recognizer_fast.onnx", ""
+        )
+        # self.emb_model.alignCrop()
+        # self.emb_model.eval()
         self.target = None
         # self._warmup()
 
@@ -64,9 +80,11 @@ class Engine(metaclass=Singleton):
         with torch.no_grad():
             pred = self.detector(img_rgb)
             # if the confidence of the prediction is less than 0.7, the prediction is discarded
-            return [p[0] for p in pred if p[2] > threshold], [
-                p[1] for p in pred if p[2] > threshold
-            ]
+            return (
+                [p[0] for p in pred if p[2] > threshold],
+                [p[1] for p in pred if p[2] > threshold],
+                [p[2] for p in pred if p[2] > threshold],
+            )
 
     def _get_embeddings(self, img_rgb, keypoints: list) -> np.ndarray:
         aligned = np.array([self._alignment(img_rgb, k)[0] for k in keypoints])
@@ -83,17 +101,49 @@ class Engine(metaclass=Singleton):
             # embs = torch.tensor(embs)
             if self.target is not None:
                 sims = F.cosine_similarity(embs, self.target, dim=-1)
+                #sims = torch.cdist(embs, self.target.unsqueeze(0), p=2).reshape(-1)
             else:
                 sims = -torch.ones(num_persons).to(self.device)
 
             return embs, sims
 
+    def _SFace(self, img_rgb, bboxes, keypoints, scores):
+        assert len(bboxes) == len(keypoints) == len(scores)
+        bboxes = retina_to_cv2_box(bboxes)
+        keypoints = retina_to_cv2_keypoints(keypoints)
+        bboxes = bboxes.reshape(bboxes.shape[0], -1)
+        keypoints = keypoints.reshape(keypoints.shape[0], -1)
+        scores = np.array(scores).reshape(-1)
+
+        faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
+        embs = []
+
+        for face in faces:
+            aligned_face = self.sface.alignCrop(img_rgb, face)
+            embs.append(self.sface.feature(aligned_face))
+
+        embs = torch.tensor(embs).to(self.device)
+        if self.target is not None:
+            sims = F.cosine_similarity(embs, self.target, dim=-1).reshape(-1)
+        else:
+            sims = -torch.ones(embs.shape[0])
+
+        return embs, sims.cpu().numpy()
+
     def process_frame(self, img_rgb, persons: list[Person]):
-        pred_bboxes, pred_keypoints = self._detect_faces(img_rgb)
+        pred_bboxes, pred_keypoints, pred_scores = self._detect_faces(
+            img_rgb
+        )  # returns list
         if len(pred_bboxes) == 0:
             return []
 
-        embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
+        #embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
+        embs, sims = self._SFace(
+            img_rgb,
+            copy.deepcopy(pred_bboxes),
+            copy.deepcopy(pred_keypoints),
+            copy.deepcopy(pred_scores),
+        )
 
         # matches the persons of the last frame with the persons of the current frame prediction
         self._match_and_update(persons, pred_bboxes, embs, sims)

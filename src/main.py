@@ -43,6 +43,7 @@ if __name__ == "__main__":
         # grab the frame from the threaded video stream and resize it
         frame = vs.read()
         frame = cv2.flip(frame, 1)
+        #frame = cv2.resize(frame, dsize=IMG_SIZE)
         img_rgb = cv2.resize(frame, dsize=IMG_SIZE)
         img_rgb = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
