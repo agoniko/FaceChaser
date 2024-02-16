@@ -1,3 +1,6 @@
+import sys
+sys.path.append("src")
+
 from Person import Person
 import numpy as np
 import cv2
@@ -56,7 +59,7 @@ class Engine(metaclass=Singleton):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         self.sface = cv2.FaceRecognizerSF_create(
-            "./model/face_recognizer_fast.onnx", ""
+            "src/model/face_recognizer_fast.onnx", ""
         )
         self.target = None
 

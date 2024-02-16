@@ -2,9 +2,9 @@ from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from AI_engine import Engine
-from utils import display_results
-from Arduino import Arduino
+from src.AI_engine import Engine
+from src.utils import display_results
+from src.Arduino import Arduino
 
 
 def get_mouse_coords(event, x, y, flags, param):
