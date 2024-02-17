@@ -1,5 +1,4 @@
 import time
-import threading
 
 class TimingInfoSingleton:
     def __new__(cls):
@@ -13,8 +12,6 @@ class TimingInfoSingleton:
         self.info = dict()
         self.t = time.time()
         self.period = 3
-        thread = threading.Thread(target=self.periodic_print, name=f'{__name__}_TimingInfoSingleton_periodic_print')
-        thread.start()
     
     def update_statistics(self, func_name: str, delta_time: float) -> None:
         if func_name in self.info.keys():
@@ -40,7 +37,7 @@ class TimingInfoSingleton:
 
     def print_statistics(self) -> None:
         print(f'In module {__name__}:')
-        for func_name, func_info in self.items():
+        for func_name, func_info in self.info.items():
             print(f"{func_name}")
             print(f"\tmin={func_info['min']*1000:.3f} ms")
             print(f"\tmax={func_info['max']*1000:.3f} ms")
@@ -61,5 +58,6 @@ def timethis(func, timing_info=TimingInfoSingleton()):
         res = func(*args, **kwargs)
         t2 = time.time()
         timing_info.update_statistics(func.__name__, t2 - t1)
+        timing_info.periodic_print()
         return res
     return wrapper
