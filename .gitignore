@@ -3,3 +3,4 @@ src/sphereface_pytorch
 **/__pycache__
 **/.vscode
 **/.DS_Store
+**/insightface

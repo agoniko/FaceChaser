@@ -4,18 +4,20 @@ import serial
 
 
 class Arduino:
-    def __init__(self, IMG_SIZE: tuple, arduino_port="/dev/cu.usbmodem21301"):
-        #self.ser = serial.Serial(arduino_port, 2000000, timeout=1)
-        self.w = IMG_SIZE[0]
-        self.h = IMG_SIZE[1]
+    def __init__(self, arduino_port="/dev/cu.usbmodem21301"):
+        # self.ser = serial.Serial(arduino_port, 2000000, timeout=1)
+        pass
 
-    def send_coordinates(self, x, y):
-        x /= self.w
-        y /= self.h
+    def send_coordinates(self, x, y, IMG_SIZE=(1920, 1080), scaling_factor=1.0):
+        dst_size = (IMG_SIZE[0], IMG_SIZE[1])
+        dst_size *= scaling_factor
+        x /= dst_size[0]
+        y /= dst_size[1]
         x = round(x, 3)
         y = round(y, 3)
         data = f"{x},{y}\n"
-        #self.ser.write(data.encode("utf-8"))
+        print(data)
+        # self.ser.write(data.encode("utf-8"))
 
     def close(self):
         self.ser.close()
