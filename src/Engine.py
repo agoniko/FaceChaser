@@ -1,16 +1,12 @@
 from typing import Tuple, Dict, List
-import sys
-
-sys.path.append("src")
-
-from Person import Person
+from src.person import Person
 import numpy as np
 import cv2
 from facenet_pytorch import InceptionResnetV1
 from tqdm import tqdm
 import copy
-import utils
-from timethis import timethis
+import src.utils as utils
+from src.timethis import timethis
 from torchvision.transforms.v2 import functional as F
 
 # inside retinaFace implementation, changed device management to be aligned with the rest of the code

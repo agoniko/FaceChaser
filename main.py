@@ -1,13 +1,10 @@
-import sys
-
-sys.path.append("src")
 from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from engine import Engine
+from src.engine import Engine
 from src.utils import display_results
-from src.Arduino import Arduino
+from src.arduino import Arduino
 
 
 def get_mouse_coords(event, x, y, flags, param):
@@ -85,6 +82,9 @@ if __name__ == "__main__":
 
         if key == ord("r"):
             engine.select_random()
+        
+        if key == ord("u"):
+            engine.unset_targets()
 
         # TODO: Add a way to select a person by clicking on them
         if key == ord(" "):
