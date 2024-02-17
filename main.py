@@ -2,7 +2,7 @@ from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from src.AI_engine import Engine
+from Engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
 
@@ -19,11 +19,15 @@ def get_mouse_coords(event, x, y, flags, param):
 
 # Cam res: 1920, 1080
 IMG_SIZE = (720, 405)
+MAX_TRACKED_PERSONS = 1
 distance_threshold = 0.5
 
 if __name__ == "__main__":
-    engine = Engine("mps", 0.4, 0.6, 2)
-    # arduino = Arduino(IMG_SIZE)
+    engine = Engine("mps", 0.4, 0.6, MAX_TRACKED_PERSONS)
+    arduinos = {
+        "1": Arduino(IMG_SIZE, "/dev/cu.usbmodem21301"),
+        "2": Arduino(IMG_SIZE, "/dev/cu.usbmodem21301"),
+    }
 
     num_frames = 0
     # created a *threaded* video stream, allow the camera sensor to warmup,
@@ -37,14 +41,19 @@ if __name__ == "__main__":
     persons = []
     selected_person, tracked_person = None, None
 
-    #cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
-    #cv2.setMouseCallback("Frame", get_mouse_coords)
+    # cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+    # cv2.setMouseCallback("Frame", get_mouse_coords)
     while True:
         # grab the frame from the threaded video stream and resize it
         frame = vs.read()
         frame = cv2.flip(frame, 1)
 
         frame = engine.process_frame(frame)
+
+        for arduino in arduinos.items():
+            x, y, z = engine.get_coords(arduino[0])
+            if x is not None and y is not None:
+                arduino[1].send_coordinates(x, y)
 
         if num_frames > 0:
             fps_str = f"FPS: {fps}"
@@ -64,15 +73,15 @@ if __name__ == "__main__":
         if key == ord("q"):
             break
 
-        if key == ord("a"):
-                engine.set_target("a")
-        if key == ord("n"):
-                engine.set_target("n")
-        
+        if key == ord("1"):
+            engine.set_target("1")
+        if key == ord("2"):
+            engine.set_target("2")
+
         if key == ord("r"):
             engine.select_random()
 
-        #TODO: Add a way to select a person by clicking on them  
+        # TODO: Add a way to select a person by clicking on them
         if key == ord(" "):
             engine.unset_target()
             tracked_person = None
