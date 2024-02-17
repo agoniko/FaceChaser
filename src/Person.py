@@ -11,10 +11,13 @@ class Person:
 
     def get_coords(self) -> Tuple[float, float, float]:
         # TODO implement z
-        x = (self.bbox[0] + self.bbox[2]) / 2
-        y = (self.bbox[1] + self.bbox[3]) / 2
-        z = 0
-        return x, y, z
+        if self.bbox is not None:
+            x = (self.bbox[0] + self.bbox[2]) / 2
+            y = (self.bbox[1] + self.bbox[3]) / 2
+            z = 0
+            return x, y, z
+        else:
+            return None, None, None
 
     def update(self, embedding: np.ndarray, bbox: np.ndarray):
         self.identity.update(embedding)
@@ -22,7 +25,7 @@ class Person:
 
     def copy(self):
         return Person(self.identity.embedding, self.bbox)
-    
+
     def compare(self, embeddings: np.ndarray) -> float:
         return self.identity.similarity(embeddings)
 
@@ -38,5 +41,5 @@ class Identity:
         )
 
     def update(self, embedding: np.ndarray):
-        #self.embedding = embedding.copy()
+        # self.embedding = embedding.copy()
         pass

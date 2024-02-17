@@ -199,9 +199,9 @@ class Engine(metaclass=Singleton):
                 best_value = similarities[i][idx]
                 if best_value > self.similarity_threshold:
                     person.update(embeddings[idx], pred_bboxes[idx])
-                    #embeddings = np.delete(embeddings, idx, axis=0)
-                    #pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                    #similarities = np.delete(similarities, idx, axis=1)
+                    # embeddings = np.delete(embeddings, idx, axis=0)
+                    # pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                    # similarities = np.delete(similarities, idx, axis=1)
                 else:
                     person.bbox = None  # person is not in the frame
         else:
@@ -209,8 +209,8 @@ class Engine(metaclass=Singleton):
                 dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
                 idx = np.argmin(dist)
                 person.update(embeddings[idx], pred_bboxes[idx])
-                #pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                #embeddings = np.delete(embeddings, idx, axis=0)
+                # pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                # embeddings = np.delete(embeddings, idx, axis=0)
 
     def select_random(self) -> None:
         self.random_selection = True
@@ -223,3 +223,12 @@ class Engine(metaclass=Singleton):
             self.tracked_persons[slot_key] = self.selected_person.copy()
         else:
             raise ValueError("You have reached the maximum number of tracked persons")
+
+    def unset_targets(self) -> None:
+        self.tracked_persons = dict()
+
+    def get_coordinates(self, slot_key: str) -> Tuple[float, float, float]:
+        if slot_key in self.tracked_persons.keys():
+            return self.tracked_persons[slot_key].get_coords()
+        else:
+            return None, None, None
