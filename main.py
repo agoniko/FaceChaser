@@ -1,8 +1,11 @@
+import sys
+
+sys.path.append("src")
 from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from src.AI_engine import Engine
+from engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
 
@@ -19,11 +22,15 @@ def get_mouse_coords(event, x, y, flags, param):
 
 # Cam res: 1920, 1080
 IMG_SIZE = (720, 405)
+MAX_TRACKED_PERSONS = 2
 distance_threshold = 0.5
 
 if __name__ == "__main__":
-    engine = Engine()
-    # arduino = Arduino(IMG_SIZE)
+    engine = Engine("mps", 0.4, 0.6, MAX_TRACKED_PERSONS)
+    arduinos = {
+        "1": Arduino(IMG_SIZE, "/dev/cu.usbmodem11201"),
+        "2": Arduino(IMG_SIZE, "/dev/cu.usbmodem11301"),
+    }
 
     num_frames = 0
     # created a *threaded* video stream, allow the camera sensor to warmup,
@@ -37,44 +44,21 @@ if __name__ == "__main__":
     persons = []
     selected_person, tracked_person = None, None
 
-    cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback("Frame", get_mouse_coords)
+    # cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+    # cv2.setMouseCallback("Frame", get_mouse_coords)
     while True:
         # grab the frame from the threaded video stream and resize it
         frame = vs.read()
         frame = cv2.flip(frame, 1)
-        #frame = cv2.resize(frame, dsize=IMG_SIZE)
-        img_rgb = cv2.resize(frame, dsize=IMG_SIZE)
-        img_rgb = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
 
-        persons = engine.process_frame(img_rgb, persons)
+        frame = engine.process_frame(frame)
 
-        if len(persons) != prev_num_person or tracked_person is None:
-            tracked_person = None
-            best = -np.inf
-            idx = -1
-            # match based on emb sims
-            for i, p in enumerate(persons):
-                if p.similarity > best and p.similarity > distance_threshold:
-                    best = p.similarity
-                    idx = i
-
-            if idx != -1:
-                tracked_person = persons[idx]
-
-        prev_num_person = len(persons)
-
-        if selected_person not in persons:
-            selected_person = None
-
-        if len(persons) > 0:
-            if selected_person is None:
-                selected_person = persons[0]
-            # arduino.send_coordinates(*selected_person.pos)
-            display_results(frame, persons, IMG_SIZE, tracked_person, selected_person)
-        else:
-            #
-            selected_person = None
+        for arduino in arduinos.items():
+            x, y, z = engine.get_coords(arduino[0])
+            if x is not None and y is not None:
+                arduino[1].send_coordinates(x, y)
+            else:
+                arduino[1].send_coordinates(IMG_SIZE[0] // 2, IMG_SIZE[1] // 2)
 
         if num_frames > 0:
             fps_str = f"FPS: {fps}"
@@ -89,34 +73,20 @@ if __name__ == "__main__":
                 thickness=1,
             )
 
-        cv2.putText(
-            frame,
-            f"Persons: {len(persons)}",
-            (10, 100),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            2,
-            (0, 255, 0),
-            1,
-        )
-
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
 
-        if selected_person is not None:
-            if key == ord("s"):
-                tracked_person = selected_person
-                engine.set_target(tracked_person)
+        if key == ord("1"):
+            engine.set_target("1")
+        if key == ord("2"):
+            engine.set_target("2")
 
-            selected_person.color = (255, 0, 0)
-            if key == ord("a"):
-                idx = persons.index(selected_person)
-                selected_person = persons[idx - 1 if idx > 0 else idx]
-            if key == ord("d"):
-                idx = persons.index(selected_person)
-                selected_person = persons[idx + 1 if idx < len(persons) - 1 else idx]
+        if key == ord("r"):
+            engine.select_random()
 
+        # TODO: Add a way to select a person by clicking on them
         if key == ord(" "):
             engine.unset_target()
             tracked_person = None

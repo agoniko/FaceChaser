@@ -1,4 +1,3 @@
-src/model
 src/sphereface_pytorch
 **/venv
 **/__pycache__
