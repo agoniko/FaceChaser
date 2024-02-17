@@ -4,18 +4,6 @@ from Person import Person
 import time
 from typing import Dict
 
-
-def timethis(func):
-    def wrapper(*args, **kwargs):
-        t1 = time.time()
-        res = func(*args, **kwargs)
-        t2 = time.time()
-        print(f"{func.__name__} took {(t2 - t1)*1000:.3f} ms")
-        return res
-
-    return wrapper
-
-
 def display_results(
     frame: np.ndarray,
     bboxes: np.ndarray,

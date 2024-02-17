@@ -10,6 +10,7 @@ from facenet_pytorch import InceptionResnetV1
 from tqdm import tqdm
 import copy
 import utils
+from timethis import timethis
 from torchvision.transforms.v2 import functional as F
 
 # inside retinaFace implementation, changed device management to be aligned with the rest of the code
@@ -20,6 +21,7 @@ import torch.nn.functional as F
 from batch_face import RetinaFace
 from torchvision.transforms import Resize, Lambda, Compose
 
+
 emb_transform = Compose(
     [
         Lambda(lambda x: torch.from_numpy(x).float()),
@@ -29,7 +31,7 @@ emb_transform = Compose(
 )
 
 
-@utils.timethis
+@timethis
 def retina_to_cv2_box(boxes):
     for box in boxes:
         xmin, ymin, xmax, ymax = box
@@ -38,7 +40,7 @@ def retina_to_cv2_box(boxes):
     return np.array(boxes)
 
 
-@utils.timethis
+@timethis
 def retina_to_cv2_keypoints(keypoints):
     # we have to swap keypoints 0 and 1 and 3 and 4
     for keypoint in keypoints:
@@ -78,7 +80,7 @@ class Engine(metaclass=Singleton):
         self.selected_person = None
         self.random_selection = False
 
-    @utils.timethis
+    @timethis
     def _detect_faces(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -110,7 +112,7 @@ class Engine(metaclass=Singleton):
         faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
         return faces
 
-    @utils.timethis
+    @timethis
     def _get_embeddings_SFace(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         faces = self._create_faces(bboxes, keypoints, scores)
 
