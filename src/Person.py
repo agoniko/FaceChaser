@@ -38,4 +38,5 @@ class Identity:
         )
 
     def update(self, embedding: np.ndarray):
-        self.embedding = embedding.copy()
+        #self.embedding = embedding.copy()
+        pass

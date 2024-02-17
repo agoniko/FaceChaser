@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, Dict, List
 import sys
 
 sys.path.append("src")
@@ -27,8 +27,6 @@ emb_transform = Compose(
         Lambda(lambda x: x.permute(0, 3, 1, 2)),
     ]
 )
-
-MAX_PERSONS = 10
 
 
 @utils.timethis
@@ -71,13 +69,12 @@ class Engine(metaclass=Singleton):
         self.sface = cv2.FaceRecognizerSF_create(
             "src/model/face_recognizer_fast.onnx", ""
         )
-        self.target = None
         self.num_faces = 0
         self.track_with_embeddings = False
         self.rescale_factor = rescale_factor
         self.similarity_threshold = similarity_threshold
         self.max_tracked_persons = max_tracked_persons
-        self.tracked_persons = [None for _ in range(self.max_tracked_persons)]
+        self.tracked_persons = dict()
         self.selected_person = None
         self.random_selection = False
 
@@ -139,11 +136,7 @@ class Engine(metaclass=Singleton):
         # if the number of people is changed from the last frame
         # or if a tracked person has None as bbox (out of frame) we rely on embeddings
         if len(pred_bboxes) != self.num_faces or any(
-            [
-                person.bbox is None
-                for person in self.tracked_persons
-                if isinstance(person, Person)
-            ]
+            [person.bbox is None for person in self.tracked_persons.values()]
         ):
             self.num_faces = len(pred_bboxes)
             self.track_with_embeddings = True
@@ -161,15 +154,11 @@ class Engine(metaclass=Singleton):
             copy.deepcopy(pred_scores),
         )
         similarities = np.array(
-            [
-                person.compare(embeddings)
-                for person in self.tracked_persons
-                if isinstance(person, Person)
-            ]
+            [person.compare(embeddings) for person in self.tracked_persons.values()]
         )
         # matches the persons of the last frame with the persons of the current frame prediction
         self._match_tracked_persons(
-            self.tracked_persons, pred_bboxes, embeddings, similarities
+            self.tracked_persons.values(), pred_bboxes, embeddings, similarities
         )
 
         if self.random_selection:
@@ -203,35 +192,32 @@ class Engine(metaclass=Singleton):
         similarities: np.ndarray,
     ) -> None:
         if self.track_with_embeddings:
-            i = 0
-            for person in tracked_persons:
-                if not isinstance(person, Person):
-                    continue
+            for i, person in enumerate(tracked_persons):
                 idx = np.argmax(similarities[i])
                 best_value = similarities[i][idx]
                 if best_value > self.similarity_threshold:
                     person.update(embeddings[idx], pred_bboxes[idx])
-                    embeddings = np.delete(embeddings, idx, axis=0)
-                    pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                    similarities = np.delete(similarities, idx, axis=1)
+                    #embeddings = np.delete(embeddings, idx, axis=0)
+                    #pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                    #similarities = np.delete(similarities, idx, axis=1)
                 else:
                     person.bbox = None  # person is not in the frame
-                i += 1
         else:
             for person in tracked_persons:
-                if not isinstance(person, Person):
-                    continue
                 dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
                 idx = np.argmin(dist)
                 person.update(embeddings[idx], pred_bboxes[idx])
-                pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                embeddings = np.delete(embeddings, idx, axis=0)
+                #pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
+                #embeddings = np.delete(embeddings, idx, axis=0)
 
     def select_random(self) -> None:
         self.random_selection = True
 
-    def set_target(self, slot: int) -> None:
-        if slot >= len(self.tracked_persons):
-            raise ValueError("Slot is out of range")
-
-        self.tracked_persons[slot] = self.selected_person.copy()
+    def set_target(self, slot_key: str) -> None:
+        if (
+            slot_key in self.tracked_persons.keys()
+            or len(self.tracked_persons) < self.max_tracked_persons
+        ):
+            self.tracked_persons[slot_key] = self.selected_person.copy()
+        else:
+            raise ValueError("You have reached the maximum number of tracked persons")

@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from Person import Person
 import time
-from typing import List
+from typing import Dict
 
 
 def timethis(func):
@@ -21,7 +21,7 @@ def display_results(
     bboxes: np.ndarray,
     similarities: np.ndarray,
     scaling_factor: float,
-    tracked_persons: List[Person],
+    tracked_persons: Dict[str, Person],
     selected_person: Person = None,
 ):
     dst_size = (frame.shape[1], frame.shape[0])
@@ -38,13 +38,10 @@ def display_results(
         )
 
         text = []
-        j = 0
-        for c, person in enumerate(tracked_persons):
-            if isinstance(person, Person):
-                text.append(f"{c+1}={similarities[j, i]:.2f}")
-                j += 1 
-            else:
-                text.append(f"{c+1}=_")
+        print(tracked_persons.keys())
+        for j, key in enumerate(tracked_persons.keys()):
+                text.append(f"{key}={similarities[j, i]:.2f}")
+
         text = ", ".join(text)
         xmin, ymin, _, _ = np.int32(bbox)
         cv2.putText(
@@ -62,15 +59,13 @@ def display_results(
         # applying the bounding box to the frame for each person
         cv2.rectangle(
             frame,
-            (int(bbox[0])+2, int(bbox[1])+2),
-            (int(bbox[2])-2, int(bbox[3])-2),
+            (int(bbox[0]) + 2, int(bbox[1]) + 2),
+            (int(bbox[2]) - 2, int(bbox[3]) - 2),
             (255, 0, 0),
             2,
         )
 
-    for person in tracked_persons:
-        if not isinstance(person, Person):
-            continue
+    for person in tracked_persons.values():
         # if person is not in frame
         if person.bbox is None:
             continue
