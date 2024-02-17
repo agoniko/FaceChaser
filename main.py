@@ -37,8 +37,8 @@ if __name__ == "__main__":
     persons = []
     selected_person, tracked_person = None, None
 
-    cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback("Frame", get_mouse_coords)
+    #cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+    #cv2.setMouseCallback("Frame", get_mouse_coords)
     while True:
         # grab the frame from the threaded video stream and resize it
         frame = vs.read()
@@ -64,10 +64,10 @@ if __name__ == "__main__":
         if key == ord("q"):
             break
 
-        if key == ord("1"):
-                engine.set_target(0)
-        if key == ord("2"):
-                engine.set_target(1)
+        if key == ord("a"):
+                engine.set_target("a")
+        if key == ord("n"):
+                engine.set_target("n")
         
         if key == ord("r"):
             engine.select_random()

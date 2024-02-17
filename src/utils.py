@@ -26,7 +26,6 @@ def display_results(
         )
 
         text = []
-        print(tracked_persons.keys())
         for j, key in enumerate(tracked_persons.keys()):
                 text.append(f"{key}={similarities[j, i]:.2f}")
 

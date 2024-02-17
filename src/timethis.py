@@ -12,12 +12,12 @@ class TimingInfoSingleton:
     def __init__(self):
         self.info = dict()
         self.t = time.time()
-        self.period = 3000
+        self.period = 3
         thread = threading.Thread(target=self.periodic_print, name=f'{__name__}_TimingInfoSingleton_periodic_print')
-        thread.run()
+        thread.start()
     
     def update_statistics(self, func_name: str, delta_time: float) -> None:
-        if func_name in self.info.keys:
+        if func_name in self.info.keys():
             # min
             if delta_time < self.info[func_name]['min']:
                 self.info[func_name]['min'] = delta_time
