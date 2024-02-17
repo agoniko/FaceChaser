@@ -1,8 +1,11 @@
+import sys
+
+sys.path.append("src")
 from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from Engine import Engine
+from engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
 
@@ -19,14 +22,14 @@ def get_mouse_coords(event, x, y, flags, param):
 
 # Cam res: 1920, 1080
 IMG_SIZE = (720, 405)
-MAX_TRACKED_PERSONS = 1
+MAX_TRACKED_PERSONS = 2
 distance_threshold = 0.5
 
 if __name__ == "__main__":
     engine = Engine("mps", 0.4, 0.6, MAX_TRACKED_PERSONS)
     arduinos = {
-        "1": Arduino(IMG_SIZE, "/dev/cu.usbmodem21301"),
-        "2": Arduino(IMG_SIZE, "/dev/cu.usbmodem21301"),
+        "1": Arduino(IMG_SIZE, "/dev/cu.usbmodem11201"),
+        "2": Arduino(IMG_SIZE, "/dev/cu.usbmodem11301"),
     }
 
     num_frames = 0
@@ -54,6 +57,8 @@ if __name__ == "__main__":
             x, y, z = engine.get_coords(arduino[0])
             if x is not None and y is not None:
                 arduino[1].send_coordinates(x, y)
+            else:
+                arduino[1].send_coordinates(IMG_SIZE[0] // 2, IMG_SIZE[1] // 2)
 
         if num_frames > 0:
             fps_str = f"FPS: {fps}"

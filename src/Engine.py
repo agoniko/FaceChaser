@@ -227,7 +227,7 @@ class Engine(metaclass=Singleton):
     def unset_targets(self) -> None:
         self.tracked_persons = dict()
 
-    def get_coordinates(self, slot_key: str) -> Tuple[float, float, float]:
+    def get_coords(self, slot_key: str) -> Tuple[float, float, float]:
         if slot_key in self.tracked_persons.keys():
             return self.tracked_persons[slot_key].get_coords()
         else:
