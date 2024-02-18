@@ -18,12 +18,12 @@ def get_mouse_coords(event, x, y, flags, param):
 
 
 # Cam res: 1920, 1080
-MAX_TRACKED_PERSONS = 1
-RESCALE_FACTOR = 0.2
+MAX_TRACKED_PERSONS = 1 
+RESCALE_FACTOR = 0.4
 distance_threshold = 0.5
 
 if __name__ == "__main__":
-    engine = Engine("mps", RESCALE_FACTOR, 0.6, MAX_TRACKED_PERSONS)
+    engine = Engine("mps", RESCALE_FACTOR, 0.5, MAX_TRACKED_PERSONS)
     arduinos = {
         "1": Arduino("/dev/cu.usbmodem1101"),
         #"2": Arduino("/dev/cu.usbmodem11301"),
