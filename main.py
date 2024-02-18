@@ -2,9 +2,9 @@ from imutils.video import WebcamVideoStream
 import cv2
 from datetime import datetime
 import numpy as np
-from src.engine import Engine
+from src.Engine import Engine
 from src.utils import display_results
-from src.arduino import Arduino
+from src.Arduino import Arduino
 
 
 def get_mouse_coords(event, x, y, flags, param):
@@ -18,15 +18,15 @@ def get_mouse_coords(event, x, y, flags, param):
 
 
 # Cam res: 1920, 1080
-MAX_TRACKED_PERSONS = 2
+MAX_TRACKED_PERSONS = 1
 RESCALE_FACTOR = 0.4
 distance_threshold = 0.5
 
 if __name__ == "__main__":
     engine = Engine("mps", RESCALE_FACTOR, 0.6, MAX_TRACKED_PERSONS)
     arduinos = {
-        "1": Arduino("/dev/cu.usbmodem11201"),
-        "2": Arduino("/dev/cu.usbmodem11301"),
+        "1": Arduino("/dev/cu.usbmodem1101"),
+        # "2": Arduino("/dev/cu.usbmodem11301"),
     }
 
     num_frames = 0
@@ -53,13 +53,15 @@ if __name__ == "__main__":
         for arduino in arduinos.items():
             x, y, z = engine.get_coords(arduino[0])
             if x is not None and y is not None:
-                arduino[1].send_coordinates(x, y)
+                arduino[1].send_coordinates(
+                    x, y, frame.shape[:2][::-1], RESCALE_FACTOR
+                )
             else:
                 arduino[1].send_coordinates(
                     frame.shape[0] // 2,
                     frame.shape[1] // 2,
                     frame.shape[:2],
-                    RESCALE_FACTOR,
+                    1,
                 )
 
         if num_frames > 0:

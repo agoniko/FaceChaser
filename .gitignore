@@ -4,3 +4,4 @@ src/sphereface_pytorch
 **/.vscode
 **/.DS_Store
 **/insightface
+src/blazeface

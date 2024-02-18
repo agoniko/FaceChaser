@@ -136,12 +136,14 @@ class Engine(metaclass=Singleton):
         if len(pred_bboxes) != self.num_faces or any(
             [person.bbox is None for person in self.tracked_persons.values()]
         ):
-            self.num_faces = len(pred_bboxes)
             self.track_with_embeddings = True
+            self.num_faces = len(pred_bboxes)
         else:
             self.track_with_embeddings = False
 
         if len(pred_bboxes) == 0:
+            for person in self.tracked_persons.values():
+                person.bbox = None
             return image
 
         # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
