@@ -5,3 +5,4 @@ src/sphereface_pytorch
 **/.DS_Store
 **/insightface
 src/blazeface
+src/model/sphere20a_20171020.pth

@@ -19,14 +19,14 @@ def get_mouse_coords(event, x, y, flags, param):
 
 # Cam res: 1920, 1080
 MAX_TRACKED_PERSONS = 1
-RESCALE_FACTOR = 0.4
+RESCALE_FACTOR = 0.2
 distance_threshold = 0.5
 
 if __name__ == "__main__":
     engine = Engine("mps", RESCALE_FACTOR, 0.6, MAX_TRACKED_PERSONS)
     arduinos = {
         "1": Arduino("/dev/cu.usbmodem1101"),
-        # "2": Arduino("/dev/cu.usbmodem11301"),
+        #"2": Arduino("/dev/cu.usbmodem11301"),
     }
 
     num_frames = 0
@@ -94,11 +94,6 @@ if __name__ == "__main__":
             engine.unset_targets()
 
         # TODO: Add a way to select a person by clicking on them
-        if key == ord(" "):
-            engine.unset_target()
-            tracked_person = None
-            persons = []
-            continue
 
         # update the FPS counter
         num_frames += 1

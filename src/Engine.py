@@ -15,7 +15,9 @@ import torch
 from torch import Tensor
 import torch.nn.functional as F
 from batch_face import RetinaFace
-from torchvision.transforms import Resize, Lambda, Compose
+from torchvision.transforms import Lambda, Compose
+from src.net_sphere import sphere20a
+from skimage import transform
 
 
 emb_transform = Compose(
@@ -27,24 +29,6 @@ emb_transform = Compose(
 )
 
 
-@timethis
-def retina_to_cv2_box(boxes):
-    for box in boxes:
-        xmin, ymin, xmax, ymax = box
-        w, h = xmax - xmin, ymax - ymin
-        box[0], box[1], box[2], box[3] = xmin, ymin, w, h
-    return np.array(boxes)
-
-
-@timethis
-def retina_to_cv2_keypoints(keypoints):
-    # we have to swap keypoints 0 and 1 and 3 and 4
-    for keypoint in keypoints:
-        keypoint[0], keypoint[1] = keypoint[1], keypoint[0]
-        keypoint[3], keypoint[4] = keypoint[4], keypoint[3]
-    return np.array(keypoints)
-
-
 class Singleton(type):
     _instances = {}
 
@@ -52,6 +36,9 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
+
+
+MAX_PERSONS = 10
 
 
 class Engine(metaclass=Singleton):
@@ -64,9 +51,11 @@ class Engine(metaclass=Singleton):
     ):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
-        self.sface = cv2.FaceRecognizerSF_create(
-            "src/model/face_recognizer_fast.onnx", ""
+        self.embedding_generator = sphere20a(feature=True)
+        self.embedding_generator.load_state_dict(
+            torch.load("./src/model/sphere20a_20171020.pth")
         )
+        self.embedding_generator.to(self.device)
         self.num_faces = 0
         self.track_with_embeddings = False
         self.rescale_factor = rescale_factor
@@ -97,27 +86,25 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-    def _create_faces(self, bboxes, keypoints, scores):
-        assert len(bboxes) == len(keypoints) == len(scores)
-        bboxes = retina_to_cv2_box(bboxes)
-        keypoints = retina_to_cv2_keypoints(keypoints)
-        bboxes = bboxes.reshape(bboxes.shape[0], -1)
-        keypoints = keypoints.reshape(keypoints.shape[0], -1)
-        scores = np.array(scores).reshape(-1)
-
-        faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
-        return faces
-
     @timethis
-    def _get_embeddings_SFace(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
-        faces = self._create_faces(bboxes, keypoints, scores)
+    def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+        assert len(bboxes) == len(keypoints) == len(scores)
 
-        return np.array(
-            [
-                self.sface.feature(self.sface.alignCrop(img_rgb, face))[0]
-                for face in faces
-            ]
-        )
+        faces = []
+        for i, bbox in enumerate(bboxes):
+            face = self._alignment(
+                img_rgb,
+                keypoints[i],
+            )
+            faces.append(face)
+        faces = emb_transform(np.array(faces))
+        # Dynamic batch causes instability, so we use a fixed batch size with placeholders
+        placeholders = torch.zeros(MAX_PERSONS, 3, 112, 96)
+        placeholders[: len(faces)] = faces
+        placeholders = placeholders.to(self.device)
+        with torch.no_grad():
+            embeddings = self.embedding_generator(placeholders)[: len(faces)]
+        return embeddings.cpu().numpy()
 
     def process_frame(self, image: np.ndarray) -> np.ndarray:
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -147,7 +134,7 @@ class Engine(metaclass=Singleton):
             return image
 
         # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
-        embeddings = self._get_embeddings_SFace(
+        embeddings = self._get_embeddings(
             img_rgb,
             copy.deepcopy(pred_bboxes),
             copy.deepcopy(pred_keypoints),
@@ -218,7 +205,8 @@ class Engine(metaclass=Singleton):
             slot_key in self.tracked_persons.keys()
             or len(self.tracked_persons) < self.max_tracked_persons
         ):
-            self.tracked_persons[slot_key] = self.selected_person.copy()
+            if self.selected_person is not None:
+                self.tracked_persons[slot_key] = self.selected_person.copy()
         else:
             raise ValueError("You have reached the maximum number of tracked persons")
 
@@ -230,3 +218,26 @@ class Engine(metaclass=Singleton):
             return self.tracked_persons[slot_key].get_coords()
         else:
             return None, None, None
+
+    # Function to align faces based on facial landmark detection
+    def _alignment(self, src_img, src_pts):
+        # Define reference points for standardized landmark positions
+        ref_pts = [
+            [30.2946, 51.6963],
+            [65.5318, 51.5014],
+            [48.0252, 71.7366],
+            [33.5493, 92.3655],
+            [62.7299, 92.2041],
+        ]
+
+        # Estimate similarity transform matrix using scikit-image
+        tform = transform.estimate_transform("similarity", src_pts, ref_pts)
+
+        # Convert scikit-image Transform object into OpenCV format
+        mtx = tform.params[0:2, :]
+
+        # Apply affine transformation to input image
+        dst_shape = (96, 112)  # Output image size
+        face_img = cv2.warpAffine(src_img, mtx, dst_shape)
+
+        return face_img
