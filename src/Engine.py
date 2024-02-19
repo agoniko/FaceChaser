@@ -29,6 +29,34 @@ emb_transform = Compose(
 )
 
 
+def retina_to_cv2_box(boxes):
+    for box in boxes:
+        xmin, ymin, xmax, ymax = box
+        w, h = xmax - xmin, ymax - ymin
+        box[0], box[1], box[2], box[3] = xmin, ymin, w, h
+    return np.array(boxes)
+
+
+def retina_to_cv2_keypoints(keypoints):
+    # we have to swap keypoints 0 and 1 and 3 and 4
+    for keypoint in keypoints:
+        keypoint[0], keypoint[1] = keypoint[1], keypoint[0]
+        keypoint[3], keypoint[4] = keypoint[4], keypoint[3]
+    return np.array(keypoints)
+
+
+def create_faces(bboxes, keypoints, scores):
+    assert len(bboxes) == len(keypoints) == len(scores)
+    bboxes = retina_to_cv2_box(bboxes)
+    keypoints = retina_to_cv2_keypoints(keypoints)
+    bboxes = bboxes.reshape(bboxes.shape[0], -1)
+    keypoints = keypoints.reshape(keypoints.shape[0], -1)
+    scores = np.array(scores).reshape(-1)
+
+    faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
+    return faces
+
+
 class Singleton(type):
     _instances = {}
 
@@ -51,12 +79,17 @@ class Engine(metaclass=Singleton):
     ):
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
-        self.embedding_generator = sphere20a(feature=True)
-        self.embedding_generator.load_state_dict(
-            torch.load("./src/model/sphere20a_20171020.pth")
-        )
-        self.embedding_generator.to(self.device)
-        self.embedding_generator.eval()
+        if self.device == torch.device("cpu"):
+            self.embedding_generator = cv2.FaceRecognizerSF_create(
+                "src/model/face_recognizer_fast.onnx", ""
+            )
+        else:
+            self.embedding_generator = sphere20a(feature=True)
+            self.embedding_generator.load_state_dict(
+                torch.load("./src/model/sphere20a_20171020.pth")
+            )
+            self.embedding_generator.to(self.device)
+            self.embedding_generator.eval()
 
         self.num_faces = 0
         self.track_with_embeddings = False
@@ -88,9 +121,7 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-
-    @timethis
-    def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings_gpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         assert len(bboxes) == len(keypoints) == len(scores)
 
         faces = []
@@ -109,7 +140,31 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
-    def must_use_embeddings(self, pred_bboxes: np.ndarray, pred_keypoints: np.ndarray, pred_scores: np.ndarray) -> bool:
+    def _get_embeddings_cpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+        faces = create_faces(bboxes, keypoints, scores)
+        print("cpu!")
+        return np.array(
+            [
+                self.embedding_generator.feature(
+                    self.embedding_generator.alignCrop(img_rgb, face)
+                )[0]
+                for face in faces
+            ]
+        )
+
+    @timethis
+    def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+        if self.device == torch.device("cpu"):
+            return self._get_embeddings_cpu(img_rgb, bboxes, keypoints, scores)
+        else:
+            return self._get_embeddings_gpu(img_rgb, bboxes, keypoints, scores)
+
+    def must_use_embeddings(
+        self,
+        pred_bboxes: np.ndarray,
+        pred_keypoints: np.ndarray,
+        pred_scores: np.ndarray,
+    ) -> bool:
         """Heuristics for deciding when to use embeddings for tracking"""
         # if the number of people is changed from the last frame
         # or if a tracked person has None as bbox (out of frame) we rely on embeddings
@@ -133,7 +188,7 @@ class Engine(metaclass=Singleton):
             self.track_with_embeddings = True
         else:
             self.track_with_embeddings = False
-        
+
         self.num_faces = len(pred_bboxes)
 
         # No person detected
@@ -141,26 +196,15 @@ class Engine(metaclass=Singleton):
             # Handle tracked_persons
             for person in self.tracked_persons.values():
                 person.bbox = None
-            
+
             # Handle selection
-            self.random_selection = False  
+            self.random_selection = False
 
             # Handle selected_person
-            self.selected_person = None 
-        else:  
+            self.selected_person = None
+        else:
             embeddings = self._get_embeddings(
-                img_rgb,
-                copy.deepcopy(pred_bboxes),
-                copy.deepcopy(pred_keypoints),
-                copy.deepcopy(pred_scores),
-            )
-            similarities = np.array(
-                [person.compare(embeddings) for person in self.tracked_persons.values()]
-            )
-
-            # Match tracked persons with persons detected in current frame
-            self._match_tracked_persons(
-                self.tracked_persons.values(), pred_bboxes, embeddings, similarities
+                img_rgb, pred_bboxes, pred_keypoints, pred_scores
             )
 
             # Randomly select a person to track
@@ -169,16 +213,7 @@ class Engine(metaclass=Singleton):
                 self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
                 self.random_selection = False
 
-            if self.selected_person is not None:
-                # Track selected person
-                sims = np.array([self.selected_person.compare(embeddings)])
-                self._match_tracked_persons(
-                    [self.selected_person], pred_bboxes, embeddings, sims
-                )
-
-                # Is selected person out of frame?
-                if self.selected_person.bbox is None:
-                    self.selected_person = None
+            similarities = self.match_tracked_selected_persons(pred_bboxes, embeddings)
 
             utils.display_results(
                 image,
@@ -190,7 +225,31 @@ class Engine(metaclass=Singleton):
             )
         return image
 
-    def _match_tracked_persons(
+    def match_tracked_selected_persons(
+        self,
+        pred_bboxes: np.ndarray,
+        embeddings: np.ndarray,
+    ) -> None:
+        similarities = np.array(
+            [person.compare(embeddings) for person in self.tracked_persons.values()]
+        )
+
+        # Match tracked persons with persons detected in current frame, #updates embeddings and bouding boxes
+        self._match(
+            self.tracked_persons.values(), pred_bboxes, embeddings, similarities
+        )
+
+        if self.selected_person is not None:
+            # Track selected person
+            sims = np.array([self.selected_person.compare(embeddings)])
+            self._match([self.selected_person], pred_bboxes, embeddings, sims)
+            # Is selected person out of frame?
+            if self.selected_person.bbox is None:
+                self.selected_person = None
+
+        return similarities
+
+    def _match(
         self,
         tracked_persons: List[Person],
         pred_bboxes: np.ndarray,
