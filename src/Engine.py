@@ -110,6 +110,14 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
+    def must_use_embeddings(self, pred_bboxes: np.ndarray, pred_keypoints: np.ndarray, pred_scores: np.ndarray) -> bool:
+        """Heuristics for deciding when to use embeddings for tracking"""
+        # if the number of people is changed from the last frame
+        # or if a tracked person has None as bbox (out of frame) we rely on embeddings
+        return len(pred_bboxes) != self.num_faces or any(
+            [person.bbox is None for person in self.tracked_persons.values()]
+        )
+
     def process_frame(self, image: np.ndarray) -> np.ndarray:
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img_rgb = cv2.resize(
@@ -122,57 +130,65 @@ class Engine(metaclass=Singleton):
 
         pred_bboxes, pred_keypoints, pred_scores = self._detect_faces(img_rgb)
 
-        # if the number of people is changed from the last frame
-        # or if a tracked person has None as bbox (out of frame) we rely on embeddings
-        if len(pred_bboxes) != self.num_faces or any(
-            [person.bbox is None for person in self.tracked_persons.values()]
-        ):
+        if self.must_use_embeddings(pred_bboxes, pred_keypoints, pred_scores):
             self.track_with_embeddings = True
-            self.num_faces = len(pred_bboxes)
         else:
             self.track_with_embeddings = False
+        
+        self.num_faces = len(pred_bboxes)
 
+        # No person detected
         if len(pred_bboxes) == 0:
+            # Handle tracked_persons
             for person in self.tracked_persons.values():
                 person.bbox = None
-            return image
+            
+            # Handle selection
+            self.random_selection = False  
 
-        # embs, sims = self._get_embeddings(img_rgb, pred_keypoints)
-        embeddings = self._get_embeddings(
-            img_rgb,
-            copy.deepcopy(pred_bboxes),
-            copy.deepcopy(pred_keypoints),
-            copy.deepcopy(pred_scores),
-        )
-        similarities = np.array(
-            [person.compare(embeddings) for person in self.tracked_persons.values()]
-        )
-        # matches the persons of the last frame with the persons of the current frame prediction
-        self._match_tracked_persons(
-            self.tracked_persons.values(), pred_bboxes, embeddings, similarities
-        )
-
-        if self.random_selection:
-            idx = np.random.choice(range(len(pred_bboxes)))
-            self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
-            self.random_selection = False
-
-        if self.selected_person is not None:
-            sims = np.array([self.selected_person.compare(embeddings)])
-            self._match_tracked_persons(
-                [self.selected_person], pred_bboxes, embeddings, sims
+            # Handle selected_person
+            self.selected_person = None 
+        else:  
+            embeddings = self._get_embeddings(
+                img_rgb,
+                copy.deepcopy(pred_bboxes),
+                copy.deepcopy(pred_keypoints),
+                copy.deepcopy(pred_scores),
             )
-            if self.selected_person.bbox is None:
-                self.selected_person = None
+            similarities = np.array(
+                [person.compare(embeddings) for person in self.tracked_persons.values()]
+            )
 
-        utils.display_results(
-            image,
-            pred_bboxes,
-            similarities,
-            1 / self.rescale_factor,
-            self.tracked_persons,
-            self.selected_person,
-        )
+            # Match tracked persons with persons detected in current frame
+            self._match_tracked_persons(
+                self.tracked_persons.values(), pred_bboxes, embeddings, similarities
+            )
+
+            # Randomly select a person to track
+            if self.random_selection:
+                idx = np.random.choice(range(len(pred_bboxes)))
+                self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+                self.random_selection = False
+
+            if self.selected_person is not None:
+                # Track selected person
+                sims = np.array([self.selected_person.compare(embeddings)])
+                self._match_tracked_persons(
+                    [self.selected_person], pred_bboxes, embeddings, sims
+                )
+
+                # Is selected person out of frame?
+                if self.selected_person.bbox is None:
+                    self.selected_person = None
+
+            utils.display_results(
+                image,
+                pred_bboxes,
+                similarities,
+                1 / self.rescale_factor,
+                self.tracked_persons,
+                self.selected_person,
+            )
         return image
 
     def _match_tracked_persons(
