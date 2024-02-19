@@ -1,4 +1,5 @@
-from imutils.video import WebcamVideoStream
+#from imutils.video import WebcamVideoStream
+from src.iomanager import IOManager
 import cv2
 from datetime import datetime
 import numpy as np
@@ -17,31 +18,45 @@ def get_mouse_coords(event, x, y, flags, param):
                 selected_person = p
                 break
 
-
-# Cam res: 1920, 1080
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rescale", type=float, default=0.4)
     parser.add_argument("--similarity", type=float, default=0.5)
     parser.add_argument("--device", type=str, default="mps")
     parser.add_argument(
-        "--serial_ports", dest='serial_ports', nargs='+', action='store', default=["/dev/cu.usbmodem1101"]
+        "--serial_ports", dest='serial_ports', nargs='+', action='store',
     )
     args = parser.parse_args()
 
     RESCALE_FACTOR = args.rescale
     SIMILARIY_THRESHOLD = args.similarity
     DEVICE = args.device
-    MAX_TRACKED_PERSONS = len(args.serial_ports)
+    
+    if args.serial_ports is not None:
+        MAX_TRACKED_PERSONS = len(args.serial_ports)
+    else:
+        args.serial_ports = []
+        MAX_TRACKED_PERSONS = 2
 
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i+1}": Arduino(port) for i, port in enumerate(args.serial_ports)}
 
-    num_frames = 0
-    # created a *threaded* video stream, allow the camera sensor to warmup,
-    # and start the FPS counter
-    vs = WebcamVideoStream(src=0).start()
+
+    # created a *threaded* io manager
+    def close():
+        global io_manager
+        io_manager.stop()
+
+    io_manager = IOManager(
+        src=0,
+        name='Multi Tracking',
+        key_callback_dict={
+            "r": engine.select_random,
+            "u": engine.unset_targets,
+            "q": close,
+        },
+        show_fps=True
+        ).start()
 
     # loop over some frames...this time using the threaded stream
     start = datetime.now()
@@ -54,9 +69,7 @@ if __name__ == "__main__":
     # cv2.setMouseCallback("Frame", get_mouse_coords)
     while True:
         # grab the frame from the threaded video stream and resize it
-        frame = vs.read()
-        frame = cv2.flip(frame, 1)
-
+        frame = io_manager.read()
         frame = engine.process_frame(frame)
 
         for arduino in arduinos.items():
@@ -71,43 +84,22 @@ if __name__ == "__main__":
                     1,
                 )
 
-        if num_frames > 0:
-            fps_str = f"FPS: {fps}"
-            # print(type(fps_str))
-            cv2.putText(
-                frame,
-                fps_str,
-                org=(10, 50),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=2,
-                color=(0, 255, 0),
-                thickness=1,
-            )
 
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
+        if False:
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                break
 
-        for i in range(1, MAX_TRACKED_PERSONS + 1):
-            if key == ord(str(i)):
-                engine.set_target(str(i))
+            for i in range(1, MAX_TRACKED_PERSONS + 1):
+                if key == ord(str(i)):
+                    engine.set_target(str(i))
 
-        if key == ord("r"):
-            engine.select_random()
+            if key == ord("r"):
+                engine.select_random()
 
-        if key == ord("u"):
-            engine.unset_targets()
+            if key == ord("u"):
+                engine.unset_targets()
 
         # TODO: Add a way to select a person by clicking on them
-
-        # update the FPS counter
-        num_frames += 1
-        if (datetime.now() - start).total_seconds() > 1:
-            start = datetime.now()
-            fps = num_frames
-            num_frames = 0
-
-    cv2.destroyAllWindows()
-    vs.stop()
-    # ser.close()
+        image = io_manager.show(frame)
+        cv2.imshow('Frame', image)
