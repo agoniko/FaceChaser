@@ -9,25 +9,12 @@ float mapFloat(float value, float fromLow, float fromHigh, float toLow, float to
   return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
 }
 
-// Define a struct
-struct Point {
-  float x;
-  float y;
-};
-
-struct Point prev;
-struct Point curr;
-int created;
-
 void setup() {
   Serial.begin(2000000);  // Initialize serial communication at 9600 bps
   servoPan.attach(9);     // Attach the servo to pin 9
   servoTilt.attach(10);
   servoPan.write(80);
   servoTilt.write(80);
-  curr.x = -1.0;
-  curr.y = -1.0;
-  created = 0;
 }
 
 void loop() {
@@ -44,12 +31,6 @@ void loop() {
 
       servoPan.write(pan);
       servoTilt.write(tilt);
-
-      prev.x = curr.x;
-      prev.y = curr.y;
-      curr.x = targetX;
-      curr.y = targetY;
-      created = 1;
     }
   }
 }
