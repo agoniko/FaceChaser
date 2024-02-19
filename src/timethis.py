@@ -37,7 +37,7 @@ class TimingInfoSingleton:
             }
 
     def print_statistics(self) -> None:
-        os.system('cls')
+        #os.system('cls')
         print(f'In module {__name__}:')
         for func_name, func_info in self.info.items():
             print(f"{func_name}")

@@ -14,7 +14,7 @@ class Person:
         if self.bbox is not None:
             x = (self.bbox[0] + self.bbox[2]) / 2
             y = (self.bbox[1] + self.bbox[3]) / 2
-            z = 0
+            z = 950 * 25 / (self.bbox[3] - self.bbox[1])
             return x, y, z
         else:
             return None, None, None

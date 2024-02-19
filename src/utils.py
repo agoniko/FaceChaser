@@ -15,7 +15,6 @@ def display_results(
     dst_size = (frame.shape[1], frame.shape[0])
     for i, bbox in enumerate(bboxes):
         bbox = bbox * scaling_factor
-
         # applying the bounding box to the frame for each person
         cv2.rectangle(
             frame,

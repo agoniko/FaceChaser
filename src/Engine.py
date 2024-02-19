@@ -88,7 +88,6 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-
     @timethis
     def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         assert len(bboxes) == len(keypoints) == len(scores)
@@ -109,7 +108,12 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
-    def must_use_embeddings(self, pred_bboxes: np.ndarray, pred_keypoints: np.ndarray, pred_scores: np.ndarray) -> bool:
+    def must_use_embeddings(
+        self,
+        pred_bboxes: np.ndarray,
+        pred_keypoints: np.ndarray,
+        pred_scores: np.ndarray,
+    ) -> bool:
         """Heuristics for deciding when to use embeddings for tracking"""
         # if the number of people is changed from the last frame
         # or if a tracked person has None as bbox (out of frame) we rely on embeddings
@@ -133,7 +137,7 @@ class Engine(metaclass=Singleton):
             self.track_with_embeddings = True
         else:
             self.track_with_embeddings = False
-        
+
         self.num_faces = len(pred_bboxes)
 
         # No person detected
@@ -141,13 +145,13 @@ class Engine(metaclass=Singleton):
             # Handle tracked_persons
             for person in self.tracked_persons.values():
                 person.bbox = None
-            
+
             # Handle selection
-            self.random_selection = False  
+            self.random_selection = False
 
             # Handle selected_person
-            self.selected_person = None 
-        else:  
+            self.selected_person = None
+        else:
             embeddings = self._get_embeddings(
                 img_rgb,
                 copy.deepcopy(pred_bboxes),
