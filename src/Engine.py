@@ -1,5 +1,5 @@
 from typing import Tuple, Dict, List
-from src.person import Person
+from src.Person import Person
 import numpy as np
 import cv2
 from facenet_pytorch import InceptionResnetV1
