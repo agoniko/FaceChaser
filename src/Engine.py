@@ -121,7 +121,6 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-    @timethis
     def _get_embeddings_gpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         assert len(bboxes) == len(keypoints) == len(scores)
 
@@ -141,7 +140,6 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
-    @timethis
     def _get_embeddings_cpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         faces = create_faces(bboxes, keypoints, scores)
         print("cpu!")
@@ -154,6 +152,7 @@ class Engine(metaclass=Singleton):
             ]
         )
 
+    @timethis
     def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         if self.device == torch.device("cpu"):
             return self._get_embeddings_cpu(img_rgb, bboxes, keypoints, scores)
