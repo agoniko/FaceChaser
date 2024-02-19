@@ -1,6 +1,10 @@
 #include <Servo.h>
 
 #define BUFFLEN 10;
+#define PI 3.1415
+
+float dx = 7.;
+float dz = 25.+8.7;
 
 Servo servoPan;  // Create a servo object
 Servo servoTilt;
@@ -21,16 +25,29 @@ void loop() {
   // Check if there's data available to read
   if (Serial.available() > 1) {
     // Read x and y coordinates from serial
-    float targetX = Serial.parseFloat();
-    float targetY = Serial.parseFloat();
+    float targetX_computer = Serial.parseFloat();
+    float targetY_computer = Serial.parseFloat();
+    float targetZ_computer = Serial.parseFloat();
 
-    // Smoothly move the servos to the target position
-    if (targetX > 0 && targetY > 0 && targetX < 1 && targetY < 1) {
-      int pan = int(mapFloat(targetX, 0, 1, 0, 160));
-      int tilt = int(mapFloat(targetY, 0, 1, 30, 160));
+    float targetX_arduino = targetX_computer + dx;
+    float targetZ_arduino = targetZ_computer - dz;
 
-      servoPan.write(pan);
-      servoTilt.write(tilt);
-    }
+    float norm = sqrt(targetX_arduino*targetX_arduino + targetZ_arduino*targetZ_arduino);
+    float versorX_target_arduino = targetX_arduino / norm;
+    float versorZ_target_arduino = targetZ_arduino / norm;
+
+    float pan_alpha_radians = acos(-versorX_target_arduino);
+    
+    // Clip to [PI/8, 7*PI/8] interval
+    pan_alpha_radians = min(pan_alpha_radians, 7*PI/8);
+    pan_alpha_radians = max(pan_alpha_radians, PI/8);
+
+    int pan_alpha_degrees = int(mapFloat(pan_alpha_radians, 0., PI, 0., 180.));
+
+    //int pan = int(mapFloat(alpha_degrees, 0, 1, 0, 160));
+      //int tilt = int(mapFloat(targetY, 0, 1, 30, 160));
+
+    servoPan.write(pan_alpha_degrees);
+      //servoTilt.write(tilt);
   }
 }
