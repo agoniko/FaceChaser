@@ -142,7 +142,6 @@ class Engine(metaclass=Singleton):
 
     def _get_embeddings_cpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         faces = create_faces(bboxes, keypoints, scores)
-        print("cpu!")
         return np.array(
             [
                 self.embedding_generator.feature(
@@ -155,7 +154,12 @@ class Engine(metaclass=Singleton):
     @timethis
     def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
         if self.device == torch.device("cpu"):
-            return self._get_embeddings_cpu(img_rgb, bboxes, keypoints, scores)
+            return self._get_embeddings_cpu(
+                copy.deepcopy(img_rgb),
+                copy.deepcopy(bboxes),
+                copy.deepcopy(keypoints),
+                copy.deepcopy(scores),
+            )
         else:
             return self._get_embeddings_gpu(img_rgb, bboxes, keypoints, scores)
 
