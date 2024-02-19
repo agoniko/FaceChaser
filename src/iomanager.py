@@ -24,6 +24,7 @@ class IOManager:
         
         # Capture first frame
         self.capture()
+        self.show_frame = self.frame
 
     def start(self):
         camera_thread = Thread(target=self.update, name="IOManagerVideoStream", args=())
@@ -46,7 +47,7 @@ class IOManager:
         while True:
             if self._stopped:
                 return
-            cv2.imshow(self.name, self.frame)
+            cv2.imshow(self.name, self.show_frame)
             key = cv2.waitKey(1) & 0xFF
             for k, fun in self.key_callback_dict.items():
                 if key == ord(k):
@@ -79,7 +80,7 @@ class IOManager:
             color=(0, 255, 0),
             thickness=1,
         )
-        self.frame = image
+        self.show_frame = image
 
     def is_running(self):
         return not self._stopped
