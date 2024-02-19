@@ -1,51 +1,52 @@
 import time
 import os
 
+
 class TimingInfoSingleton:
     def __new__(cls):
-        """ creates a singleton object, if it is not created, 
+        """creates a singleton object, if it is not created,
         or else returns the previous singleton object"""
-        if not hasattr(cls, 'instance'):
+        if not hasattr(cls, "instance"):
             cls.instance = super().__new__(cls)
         return cls.instance
-    
+
     def __init__(self):
         self.info = dict()
         self.t = time.time()
         self.period = 3
-    
+
     def update_statistics(self, func_name: str, delta_time: float) -> None:
         if func_name in self.info.keys():
             # min
-            if delta_time < self.info[func_name]['min']:
-                self.info[func_name]['min'] = delta_time
+            if delta_time < self.info[func_name]["min"]:
+                self.info[func_name]["min"] = delta_time
             # max
-            if delta_time > self.info[func_name]['max']:
-                self.info[func_name]['max'] = delta_time
+            if delta_time > self.info[func_name]["max"]:
+                self.info[func_name]["max"] = delta_time
             # mean
-            n = self.info[func_name]['num_executions']
-            old_mean = self.info[func_name]['mean']
-            self.info[func_name]['mean'] = (old_mean * n + delta_time) / (n + 1)
+            n = self.info[func_name]["num_executions"]
+            old_mean = self.info[func_name]["mean"]
+            self.info[func_name]["mean"] = (old_mean * n + delta_time) / (n + 1)
             # num executions
-            self.info[func_name]['num_executions'] += 1
+            self.info[func_name]["num_executions"] += 1
         else:
             self.info[func_name] = {
-                'min': delta_time,
-                'mean': delta_time,
-                'max': delta_time,
-                'num_executions': 1
+                "min": delta_time,
+                "mean": delta_time,
+                "max": delta_time,
+                "num_executions": 1,
             }
 
     def print_statistics(self) -> None:
-        #os.system('cls')
-        print(f'In module {__name__}:')
+        os.system("cls" if os.name == "nt" else "clear")
+        print(f"In module {__name__}:")
         for func_name, func_info in self.info.items():
             print(f"{func_name}")
             print(f"\tmin={func_info['min']*1000:.3f} ms")
             print(f"\tmax={func_info['max']*1000:.3f} ms")
             print(f"\tmean={func_info['mean']*1000:.3f} ms")
             print(f"\tnum_executions={func_info['num_executions']}")
-        print("-"*40 + '\n')
+        print("-" * 40 + "\n")
 
     def periodic_print(self):
         now = time.time()
@@ -62,4 +63,5 @@ def timethis(func, timing_info=TimingInfoSingleton()):
         timing_info.update_statistics(func.__name__, t2 - t1)
         timing_info.periodic_print()
         return res
+
     return wrapper

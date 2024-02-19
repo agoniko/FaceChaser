@@ -38,7 +38,6 @@ if __name__ == "__main__":
     DEVICE = args.device
 
     if args.serial_ports is not None:
-        print(args.serial_ports)
         MAX_TRACKED_PERSONS = len(args.serial_ports)
     else:
         args.serial_ports = []
@@ -46,7 +45,6 @@ if __name__ == "__main__":
 
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
-    print(arduinos)
     # created a *threaded* io manager
     def close():
         global io_manager
@@ -73,7 +71,6 @@ if __name__ == "__main__":
             x, y, z = engine.get_coords(arduino[0])
             if x is not None and y is not None and z is not None:
                 z *= RESCALE_FACTOR
-                print(x, y, z)
                 arduino[1].send_coordinates(
                     x, y, z, frame.shape[:2][::-1], RESCALE_FACTOR
                 )
