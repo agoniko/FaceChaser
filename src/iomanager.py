@@ -46,6 +46,7 @@ class IOManager:
         while True:
             if self._stopped:
                 return
+            cv2.imshow(self.name, self.frame)
             key = cv2.waitKey(1) & 0xFF
             for k, fun in self.key_callback_dict.items():
                 if key == ord(k):
@@ -78,7 +79,7 @@ class IOManager:
             color=(0, 255, 0),
             thickness=1,
         )
-        return image
+        self.frame = image
 
     def is_running(self):
         return not self._stopped

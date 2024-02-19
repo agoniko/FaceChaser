@@ -46,15 +46,18 @@ if __name__ == "__main__":
     def close():
         global io_manager
         io_manager.stop()
+    key_callback_dict={
+            "r": engine.select_random,
+            "u": engine.unset_targets,
+            "q": close,
+        }
+    for i in range(1, MAX_TRACKED_PERSONS + 1):
+        key_callback_dict[str(i)] = lambda: engine.set_target(str(i))
 
     io_manager = IOManager(
         src=0,
         name='Multi Tracking',
-        key_callback_dict={
-            "r": engine.select_random,
-            "u": engine.unset_targets,
-            "q": close,
-        },
+        key_callback_dict=key_callback_dict,
         show_fps=True
         ).start()
 
@@ -67,7 +70,7 @@ if __name__ == "__main__":
 
     # cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
     # cv2.setMouseCallback("Frame", get_mouse_coords)
-    while True:
+    while io_manager.is_running():
         # grab the frame from the threaded video stream and resize it
         frame = io_manager.read()
         frame = engine.process_frame(frame)
@@ -84,22 +87,5 @@ if __name__ == "__main__":
                     1,
                 )
 
-
-        if False:
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                break
-
-            for i in range(1, MAX_TRACKED_PERSONS + 1):
-                if key == ord(str(i)):
-                    engine.set_target(str(i))
-
-            if key == ord("r"):
-                engine.select_random()
-
-            if key == ord("u"):
-                engine.unset_targets()
-
         # TODO: Add a way to select a person by clicking on them
-        image = io_manager.show(frame)
-        cv2.imshow('Frame', image)
+        io_manager.show(frame)
