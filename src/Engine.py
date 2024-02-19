@@ -99,6 +99,10 @@ class Engine(metaclass=Singleton):
         self.tracked_persons = dict()
         self.selected_person = None
         self.random_selection = False
+        self.right = False
+        self.left = False
+        self.up = False
+        self.down = False
 
     @timethis
     def _detect_faces(
@@ -203,6 +207,8 @@ class Engine(metaclass=Singleton):
 
             # Handle selection
             self.random_selection = False
+            self.left, self.right = False, False
+            self.up, self.down = False, False
 
             # Handle selected_person
             self.selected_person = None
@@ -218,6 +224,7 @@ class Engine(metaclass=Singleton):
                 self.random_selection = False
 
             similarities = self.match_tracked_selected_persons(pred_bboxes, embeddings)
+            self._change_selected_person(pred_bboxes, embeddings)
 
             utils.display_results(
                 image,
@@ -228,6 +235,45 @@ class Engine(metaclass=Singleton):
                 self.selected_person,
             )
         return image
+
+    def _change_selected_person(self, pred_bboxes, embeddings):
+        if self.selected_person is None:
+            return
+        # sorting bboxes by xmin that is in [:, 0] position
+        # if self.right we select the bounding box immediately after self.selected person.bbox[0]
+        # if self.left we select the bounding box immediately before self.selected person.bbox[0]
+        if self.right:
+            pred_bboxes = pred_bboxes[pred_bboxes[:, 0].argsort()]
+            idx = np.where(pred_bboxes[:, 0] > self.selected_person.bbox[0])[0]
+            self.right = False
+            if len(idx) > 0:
+                idx = idx[0]
+                self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+        elif self.left:
+            pred_bboxes = pred_bboxes[pred_bboxes[:, 0].argsort()]
+            idx = np.where(pred_bboxes[:, 0] < self.selected_person.bbox[0])[0]
+            self.left = False
+            if len(idx) > 0:
+                idx = idx[-1]
+                self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+        elif self.up:
+            # sorting by ymin
+            pred_bboxes = pred_bboxes[pred_bboxes[:, 1].argsort()]
+            idx = np.where(pred_bboxes[:, 1] < self.selected_person.bbox[1])[0]
+            self.up = False
+            if len(idx) > 0:
+                idx = idx[-1]
+                self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+        elif self.down:
+            # sorting by ymin
+            pred_bboxes = pred_bboxes[pred_bboxes[:, 1].argsort()]
+            idx = np.where(pred_bboxes[:, 1] > self.selected_person.bbox[1])[0]
+            self.down = False
+            if len(idx) > 0:
+                idx = idx[0]
+                self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+
+        # same for up and down
 
     def match_tracked_selected_persons(
         self,
@@ -323,3 +369,15 @@ class Engine(metaclass=Singleton):
         face_img = cv2.warpAffine(src_img, mtx, dst_shape)
 
         return face_img
+
+    def select_right(self):
+        self.right = True
+
+    def select_left(self):
+        self.left = True
+
+    def select_up(self):
+        self.up = True
+
+    def select_down(self):
+        self.down = True

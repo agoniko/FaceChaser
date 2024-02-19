@@ -30,7 +30,7 @@ if __name__ == "__main__":
         nargs="+",
         action="store",
     )
-    #serial port = /dev/cu.usbmodem21201
+    # serial port = /dev/cu.usbmodem21201
     args = parser.parse_args()
 
     RESCALE_FACTOR = args.rescale
@@ -45,6 +45,7 @@ if __name__ == "__main__":
 
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
+
     # created a *threaded* io manager
     def close():
         global io_manager
@@ -54,6 +55,10 @@ if __name__ == "__main__":
         "r": engine.select_random,
         "u": engine.unset_targets,
         "q": close,
+        "a": engine.select_left,
+        "d": engine.select_right,
+        "w": engine.select_up,
+        "s": engine.select_down,
     }
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[str(i)] = engine.set_target
