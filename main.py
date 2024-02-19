@@ -5,6 +5,7 @@ import numpy as np
 from src.Engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
+import argparse
 
 
 def get_mouse_coords(event, x, y, flags, param):
@@ -18,16 +19,24 @@ def get_mouse_coords(event, x, y, flags, param):
 
 
 # Cam res: 1920, 1080
-MAX_TRACKED_PERSONS = 1
-RESCALE_FACTOR = 0.4
-distance_threshold = 0.5
 
 if __name__ == "__main__":
-    engine = Engine("mps", RESCALE_FACTOR, 0.6, MAX_TRACKED_PERSONS)
-    arduinos = {
-        "1": Arduino("/dev/cu.usbmodem1101"),
-        # "2": Arduino("/dev/cu.usbmodem11301"),
-    }
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rescale", type=float, default=0.4)
+    parser.add_argument("--similarity", type=float, default=0.5)
+    parser.add_argument("--device", type=str, default="mps")
+    parser.add_argument(
+        "--serial_ports", dest='serial_ports', nargs='+', action='store', default=["/dev/cu.usbmodem1101"]
+    )
+    args = parser.parse_args()
+
+    RESCALE_FACTOR = args.rescale
+    SIMILARIY_THRESHOLD = args.similarity
+    DEVICE = args.device
+    MAX_TRACKED_PERSONS = len(args.serial_ports)
+
+    engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
+    arduinos = {f"{i+1}": Arduino(port) for i, port in enumerate(args.serial_ports)}
 
     num_frames = 0
     # created a *threaded* video stream, allow the camera sensor to warmup,
@@ -53,9 +62,7 @@ if __name__ == "__main__":
         for arduino in arduinos.items():
             x, y, z = engine.get_coords(arduino[0])
             if x is not None and y is not None:
-                arduino[1].send_coordinates(
-                    x, y, frame.shape[:2][::-1], RESCALE_FACTOR
-                )
+                arduino[1].send_coordinates(x, y, frame.shape[:2][::-1], RESCALE_FACTOR)
             else:
                 arduino[1].send_coordinates(
                     frame.shape[0] // 2,
@@ -82,10 +89,9 @@ if __name__ == "__main__":
         if key == ord("q"):
             break
 
-        if key == ord("1"):
-            engine.set_target("1")
-        if key == ord("2"):
-            engine.set_target("2")
+        for i in range(1, MAX_TRACKED_PERSONS + 1):
+            if key == ord(str(i)):
+                engine.set_target(str(i))
 
         if key == ord("r"):
             engine.select_random()
@@ -94,11 +100,6 @@ if __name__ == "__main__":
             engine.unset_targets()
 
         # TODO: Add a way to select a person by clicking on them
-        if key == ord(" "):
-            engine.unset_target()
-            tracked_person = None
-            persons = []
-            continue
 
         # update the FPS counter
         num_frames += 1

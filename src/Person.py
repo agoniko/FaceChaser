@@ -33,6 +33,7 @@ class Person:
 class Identity:
     def __init__(self, embedding: np.ndarray):
         self.embedding = embedding.copy()
+        self.n_updates = 0
 
     def similarity(self, embeddings: np.ndarray) -> np.ndarray:
         "returns a np.ndarray of similarity scores between self and the target embeddings"
@@ -41,5 +42,6 @@ class Identity:
         )
 
     def update(self, embedding: np.ndarray):
-        # self.embedding = embedding.copy()
-        pass
+        self.embedding = self.embedding * self.n_updates + embedding
+        self.n_updates += 1
+        self.embedding /= self.n_updates
