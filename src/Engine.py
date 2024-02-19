@@ -57,7 +57,6 @@ class Engine(metaclass=Singleton):
         )
         self.embedding_generator.to(self.device)
         self.embedding_generator.eval()
-        self.embedding_generator = torch.compile(self.embedding_generator, backend="aot_eager")
 
         self.num_faces = 0
         self.track_with_embeddings = False
