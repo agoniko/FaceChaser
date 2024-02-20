@@ -1,38 +1,32 @@
 #include <Servo.h>
-
-#define BUFFLEN 10;
 #define PI 3.1415
-
-float dx = 7.;
-float dz = 25.+8.7;
-
-Servo servoPan;  // Create a servo object
-Servo servoTilt;
 
 float mapFloat(float value, float fromLow, float fromHigh, float toLow, float toHigh) {
   return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
 }
-float targetX_computer;
-float targetY_computer;
-float targetZ_computer;
 
-float targetX_arduino;
-float targetY_arduino;
-float targetZ_arduino;
+typedef struct{
+  float x;
+  float y;
+  float z;
+} Vector;
 
-float versorX_target_arduino;
-float versorY_target_arduino;
-float versorZ_target_arduino;
+// Objects coordinates
+// variabale names notation: <object>_<reference system>
+Vector computer_arduino;
+Vector target_computer;
+Vector target_arduino;
 
-float pan_alpha_radians;
-float tilt_alpha_radians;
+// Pan, Tilt angles
+float pan_angle_radians;
+float tilt_angle_radians;
 
-int pan_alpha_degrees;
-int tilt_alpha_degrees;
+float pan_angle_degrees;
+float tilt_angle_degrees;
 
-float norm;
-
-
+// Servo objects
+Servo servoPan;
+Servo servoTilt;
 
 void setup() {
   Serial.begin(2000000);  // Initialize serial communication at 9600 bps
@@ -40,36 +34,46 @@ void setup() {
   servoTilt.attach(10);
   servoPan.write(80);
   servoTilt.write(80);
+
+  computer_arduino.x = 7.;
+  computer_arduino.y = 22.;
+  computer_arduino.z = -(25. + 8.7);
 }
 
 void loop() {
   // Check if there's data available to read
   if (Serial.available() > 1) {
-    // Read x and y coordinates from serial
-    targetX_computer = Serial.parseFloat();
-    targetY_computer = Serial.parseFloat();
-    targetZ_computer = Serial.parseFloat();
+    // Read x,y,z coordinates from serial
+    target_computer.x = Serial.parseFloat();
+    target_computer.y = Serial.parseFloat();
+    target_computer.z = Serial.parseFloat();
 
-    targetX_arduino = targetX_computer + dx;
-    targetZ_arduino = targetZ_computer - dz;
+    target_arduino.x =   target_computer.x + computer_arduino.x;
+    target_arduino.y = - target_computer.y + computer_arduino.y;
+    target_arduino.z =   target_computer.z + computer_arduino.z;
 
-    norm = sqrt(targetX_arduino*targetX_arduino + targetZ_arduino*targetZ_arduino);
-    versorX_target_arduino = targetX_arduino / norm;
-    versorZ_target_arduino = targetZ_arduino / norm;
+    pan_angle_radians = acos(
+      -target_arduino.x /
+      (target_arduino.x*target_arduino.x + target_arduino.z * target_arduino.z)
+    );
 
-    pan_alpha_radians = acos(-versorX_target_arduino);
+    tilt_angle_radians = acos(
+      -target_arduino.y /
+      (target_arduino.y*target_arduino.y + target_arduino.z * target_arduino.z)
+    );
     
     // Clip to [PI/8, 7*PI/8] interval
-    pan_alpha_radians = min(pan_alpha_radians, 7*PI/8);
-    pan_alpha_radians = max(pan_alpha_radians, PI/8);
+    pan_angle_radians = min(pan_angle_radians, 7*PI/8);
+    pan_angle_radians = max(pan_angle_radians, PI/8);
 
-    pan_alpha_degrees = int(mapFloat(pan_alpha_radians, 0., PI, 0., 180.));
+    tilt_angle_radians = min(tilt_angle_radians, 7*PI/8);
+    tilt_angle_radians = max(tilt_angle_radians, PI/8);
 
-    //int pan = int(mapFloat(alpha_degrees, 0, 1, 0, 160));
-      //int tilt = int(mapFloat(targetY, 0, 1, 30, 160));
+    // Map to degrees
+    pan_angle_degrees = mapFloat(pan_angle_radians, 0., PI, 0., 180.);
+    tilt_angle_degrees = mapFloat(tilt_angle_radians, 0., PI, 0., 180.);
 
-    servoPan.write(pan_alpha_degrees);
-    servoTilt.write(pan_alpha_degrees);
-      //servoTilt.write(tilt);
+    servoPan.write(int(pan_angle_degrees));
+    servoTilt.write(int(tilt_angle_degrees));
   }
 }
