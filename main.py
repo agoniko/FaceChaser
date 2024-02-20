@@ -46,8 +46,8 @@ if __name__ == "__main__":
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
     
-    arduinos[0].set_computer_position(np.array([7., -22., -33.7]))
-    arduinos[1].set_computer_position(np.array([-7., -22., -33.7]))
+    arduinos["1"].set_computer_position(np.array([7., -22., -33.7]))
+    # arduinos["2"].set_computer_position(np.array([-7., -22., -33.7]))
 
     # created a *threaded* io manager
     def close():

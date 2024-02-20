@@ -16,9 +16,15 @@ void setup() {
 
 void loop() {
   // Check if there's data available to read
-  if (Serial.available() > 0) {
+  if (Serial.available() > 1) {
     pan = Serial.parseInt();
     tilt = Serial.parseInt();
+
+    pan = min(pan, 180);
+    pan = max(pan, 0);
+
+    tilt = min(tilt, 180);
+    tilt = max(tilt, 0);    
 
     servoPan.write(pan);
     servoTilt.write(tilt);
