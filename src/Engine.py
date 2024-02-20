@@ -1,19 +1,12 @@
-from typing import Tuple, Dict, List
+from typing import Tuple, List
 from src.Person import Person
 import numpy as np
 import cv2
-from facenet_pytorch import InceptionResnetV1
-from tqdm import tqdm
 import copy
 import src.utils as utils
 from src.timethis import timethis
-from torchvision.transforms.v2 import functional as F
 
-# inside retinaFace implementation, changed device management to be aligned with the rest of the code
-# (you have to pass the string name to the constructor)
 import torch
-from torch import Tensor
-import torch.nn.functional as F
 from batch_face import RetinaFace
 from batch_face.face_detection.alignment import load_net
 from torchvision.transforms import Lambda, Compose
@@ -114,6 +107,17 @@ class Engine(metaclass=Singleton):
         similarity_threshold: float = 0.6,
         max_tracked_persons: int = 10,
     ):
+        """
+        args:
+        - device: str, default="mps"
+            The device to use for the detector and the embeddings generator
+        - rescale_factor: float, default=1.0
+            The factor by which to rescale the input image
+        - similarity_threshold: float, default=0.6
+            The threshold for the cosine similarity between embeddings
+        - max_tracked_persons: int, default=10
+            The maximum number of persons to track, this param is also used for a fixed batch size for the embeddings generator
+        """
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         if self.device == torch.device("cpu"):
@@ -129,12 +133,15 @@ class Engine(metaclass=Singleton):
             self.embedding_generator.eval()
 
         self.num_faces = 0
-        self.track_with_embeddings = False
         self.rescale_factor = rescale_factor
         self.similarity_threshold = similarity_threshold
         self.max_tracked_persons = max_tracked_persons
         self.tracked_persons = dict()
         self.selected_person = None
+
+        # Flag for tracking with embeddings or not (heuristic)
+        self.track_with_embeddings = False
+        # Flags for selecting a person
         self.random_selection = False
         self.right = False
         self.left = False
@@ -145,6 +152,10 @@ class Engine(metaclass=Singleton):
     def _detect_faces(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Detects faces in the input image and returns the bounding boxes, keypoints and scores
+        It thresholds the predictions based on the confidence score of the detector
+        """
         with torch.no_grad():
             pred = self.detector(img_rgb)
             # if the confidence of the prediction is less than 0.7, the prediction is discarded
@@ -162,7 +173,16 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-    def _get_embeddings_gpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings_gpu(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Aligns the faces and computes the embeddings for each face using the sphereface model on gpu
+        """
         assert len(bboxes) == len(keypoints) == len(scores)
 
         faces = []
@@ -181,7 +201,17 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
-    def _get_embeddings_cpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings_cpu(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Uses the SFace model from cv2 to align each face and compute the embeddings.
+        This model is used only for cpu inference.
+        """
         faces = create_faces(bboxes, keypoints, scores)
         return np.array(
             [
@@ -193,8 +223,18 @@ class Engine(metaclass=Singleton):
         )
 
     @timethis
-    def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Selects the appropriate method for computing the embeddings based on the device
+        """
         if self.device == torch.device("cpu"):
+            # deepcopy is used because order of coordinates is switched for the alignment function of SFace
             return self._get_embeddings_cpu(
                 copy.deepcopy(img_rgb),
                 copy.deepcopy(bboxes),
@@ -218,6 +258,13 @@ class Engine(metaclass=Singleton):
         )
 
     def process_frame(self, image: np.ndarray) -> np.ndarray:
+        """
+        This method is the main method of the class. It processes the input image and returns the image overlayed with the
+        bounding boxes color coded for the tracked persons and selected person.
+        It also overlay similarity scores with the tracked persons.
+        """
+
+        # Rescale the image for model inference, results are rescaled on the original size
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img_rgb = cv2.resize(
             img_rgb,
@@ -254,7 +301,7 @@ class Engine(metaclass=Singleton):
                 img_rgb, pred_bboxes, pred_keypoints, pred_scores
             )
 
-            # Randomly select a person to track
+            # Randomly select a person to track, a must if in the previous frame no person is selected
             if self.random_selection:
                 idx = np.random.choice(range(len(pred_bboxes)))
                 self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
@@ -263,6 +310,7 @@ class Engine(metaclass=Singleton):
             similarities = self.match_tracked_selected_persons(pred_bboxes, embeddings)
             self._change_selected_person(pred_bboxes, embeddings)
 
+            # overlays the image with the bounding boxes and the similarity scores
             utils.display_results(
                 image,
                 pred_bboxes,
