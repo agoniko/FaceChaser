@@ -1,19 +1,12 @@
-from typing import Tuple, Dict, List
+from typing import Tuple, List
 from src.Person import Person
 import numpy as np
 import cv2
-from facenet_pytorch import InceptionResnetV1
-from tqdm import tqdm
 import copy
 import src.utils as utils
 from src.timethis import timethis
-from torchvision.transforms.v2 import functional as F
 
-# inside retinaFace implementation, changed device management to be aligned with the rest of the code
-# (you have to pass the string name to the constructor)
 import torch
-from torch import Tensor
-import torch.nn.functional as F
 from batch_face import RetinaFace
 from batch_face.face_detection.alignment import load_net
 from torchvision.transforms import Lambda, Compose
@@ -114,6 +107,17 @@ class Engine(metaclass=Singleton):
         similarity_threshold: float = 0.6,
         max_tracked_persons: int = 10,
     ):
+        """
+        args:
+        - device: str, default="mps"
+            The device to use for the detector and the embeddings generator
+        - rescale_factor: float, default=1.0
+            The factor by which to rescale the input image
+        - similarity_threshold: float, default=0.6
+            The threshold for the cosine similarity between embeddings
+        - max_tracked_persons: int, default=10
+            The maximum number of persons to track, this param is also used for a fixed batch size for the embeddings generator
+        """
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         if self.device == torch.device("cpu"):
@@ -129,12 +133,15 @@ class Engine(metaclass=Singleton):
             self.embedding_generator.eval()
 
         self.num_faces = 0
-        self.track_with_embeddings = False
         self.rescale_factor = rescale_factor
         self.similarity_threshold = similarity_threshold
         self.max_tracked_persons = max_tracked_persons
         self.tracked_persons = dict()
         self.selected_person = None
+
+        # Flag for tracking with embeddings or not (heuristic)
+        self.track_with_embeddings = False
+        # Flags for selecting a person
         self.random_selection = False
         self.right = False
         self.left = False
@@ -145,6 +152,10 @@ class Engine(metaclass=Singleton):
     def _detect_faces(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Detects faces in the input image and returns the bounding boxes, keypoints and scores
+        It thresholds the predictions based on the confidence score of the detector
+        """
         with torch.no_grad():
             pred = self.detector(img_rgb)
             # if the confidence of the prediction is less than 0.7, the prediction is discarded
@@ -162,7 +173,16 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
-    def _get_embeddings_gpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings_gpu(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Aligns the faces and computes the embeddings for each face using the sphereface model on gpu
+        """
         assert len(bboxes) == len(keypoints) == len(scores)
 
         faces = []
@@ -181,7 +201,17 @@ class Engine(metaclass=Singleton):
             embeddings = self.embedding_generator(placeholders)[: len(faces)]
         return embeddings.cpu().numpy()
 
-    def _get_embeddings_cpu(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings_cpu(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Uses the SFace model from cv2 to align each face and compute the embeddings.
+        This model is used only for cpu inference.
+        """
         faces = create_faces(bboxes, keypoints, scores)
         return np.array(
             [
@@ -193,8 +223,18 @@ class Engine(metaclass=Singleton):
         )
 
     @timethis
-    def _get_embeddings(self, img_rgb, bboxes, keypoints, scores) -> np.ndarray:
+    def _get_embeddings(
+        self,
+        img_rgb: np.ndarray,
+        bboxes: np.ndarray,
+        keypoints: np.ndarray,
+        scores: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Selects the appropriate method for computing the embeddings based on the device
+        """
         if self.device == torch.device("cpu"):
+            # deepcopy is used because order of coordinates is switched for the alignment function of SFace
             return self._get_embeddings_cpu(
                 copy.deepcopy(img_rgb),
                 copy.deepcopy(bboxes),
@@ -218,6 +258,13 @@ class Engine(metaclass=Singleton):
         )
 
     def process_frame(self, image: np.ndarray) -> np.ndarray:
+        """
+        This method is the main method of the class. It processes the input image and returns the image overlayed with the
+        bounding boxes color coded for the tracked persons and selected person.
+        It also overlay similarity scores with the tracked persons.
+        """
+
+        # Rescale the image for model inference, results are rescaled on the original size
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img_rgb = cv2.resize(
             img_rgb,
@@ -226,9 +273,10 @@ class Engine(metaclass=Singleton):
                 int(img_rgb.shape[0] * self.rescale_factor),
             ),
         )
-
+        # getting prediction from face detector (RetinaFace)
         pred_bboxes, pred_keypoints, pred_scores = self._detect_faces(img_rgb)
 
+        # choosing to track targets by embeddings or not based on the heuristic
         if self.must_use_embeddings(pred_bboxes, pred_keypoints, pred_scores):
             self.track_with_embeddings = True
         else:
@@ -254,15 +302,19 @@ class Engine(metaclass=Singleton):
                 img_rgb, pred_bboxes, pred_keypoints, pred_scores
             )
 
-            # Randomly select a person to track
+            # Randomly select a person to track, a must if in the previous frame no person is selected
             if self.random_selection:
                 idx = np.random.choice(range(len(pred_bboxes)))
                 self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
                 self.random_selection = False
 
+            # updates the tracked persons and the selected person bounding boxes and embeddings
             similarities = self.match_tracked_selected_persons(pred_bboxes, embeddings)
+
+            # if the user wants to change the selected person, the selected person is updated
             self._change_selected_person(pred_bboxes, embeddings)
 
+            # overlays the image with the bounding boxes and the similarity scores
             utils.display_results(
                 image,
                 pred_bboxes,
@@ -293,6 +345,7 @@ class Engine(metaclass=Singleton):
             if len(idx) > 0:
                 idx = idx[-1]
                 self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
+        # same as before but for up and down
         elif self.up:
             # sorting by ymin
             pred_bboxes = pred_bboxes[pred_bboxes[:, 1].argsort()]
@@ -310,13 +363,14 @@ class Engine(metaclass=Singleton):
                 idx = idx[0]
                 self.selected_person = Person(embeddings[idx], pred_bboxes[idx])
 
-        # same for up and down
-
     def match_tracked_selected_persons(
         self,
         pred_bboxes: np.ndarray,
         embeddings: np.ndarray,
     ) -> None:
+        """
+        This method matches the tracked persons and the selected person with the persons detected in the current frame
+        """
         similarities = np.array(
             [person.compare(embeddings) for person in self.tracked_persons.values()]
         )
@@ -343,15 +397,18 @@ class Engine(metaclass=Singleton):
         embeddings: np.ndarray,
         similarities: np.ndarray,
     ) -> None:
+        """
+        Given a list of Person objects, it updates the embeddings and the bounding boxes of the persons in the list,
+        This match is mainly done computing the distance between the bounding boxes of the tracked persons
+        and the detected persons in the current frame. If the heuristic says that this match is uncertain,
+        the similarity between the embeddings is used to update the tracked persons.
+        """
         if self.track_with_embeddings:
             for i, person in enumerate(tracked_persons):
                 idx = np.argmax(similarities[i])
                 best_value = similarities[i][idx]
                 if best_value > self.similarity_threshold:
                     person.update(embeddings[idx], pred_bboxes[idx])
-                    # embeddings = np.delete(embeddings, idx, axis=0)
-                    # pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                    # similarities = np.delete(similarities, idx, axis=1)
                 else:
                     person.bbox = None  # person is not in the frame
         else:
@@ -359,13 +416,11 @@ class Engine(metaclass=Singleton):
                 dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
                 idx = np.argmin(dist)
                 person.update(embeddings[idx], pred_bboxes[idx])
-                # pred_bboxes = np.delete(pred_bboxes, idx, axis=0)
-                # embeddings = np.delete(embeddings, idx, axis=0)
-
-    def select_random(self) -> None:
-        self.random_selection = True
 
     def set_target(self, slot_key: str) -> None:
+        """
+        Sets the selected person as a target to track in the slot_key position entered by the user
+        """
         if (
             slot_key in self.tracked_persons.keys()
             or len(self.tracked_persons) < self.max_tracked_persons
@@ -379,6 +434,9 @@ class Engine(metaclass=Singleton):
         self.tracked_persons = dict()
 
     def get_coords(self, slot_key: str) -> Tuple[float, float, float]:
+        """
+        returns the center of the bounding box of the person in the slot_key position
+        """
         if slot_key in self.tracked_persons.keys():
             return self.tracked_persons[slot_key].get_coords()
         else:
@@ -386,6 +444,10 @@ class Engine(metaclass=Singleton):
 
     # Function to align faces based on facial landmark detection
     def _alignment(self, src_img, src_pts):
+        """
+        Given an image and the 5 facial landmarks, it aligns the face and returns the aligned face.
+        The return size is 96x112, the same size used for training the sphereface model
+        """
         # Define reference points for standardized landmark positions
         ref_pts = [
             [30.2946, 51.6963],
@@ -406,6 +468,10 @@ class Engine(metaclass=Singleton):
         face_img = cv2.warpAffine(src_img, mtx, dst_shape)
 
         return face_img
+
+    # Setting flags for selecting a person
+    def select_random(self) -> None:
+        self.random_selection = True
 
     def select_right(self):
         self.right = True
