@@ -15,9 +15,27 @@ import torch
 from torch import Tensor
 import torch.nn.functional as F
 from batch_face import RetinaFace
+from batch_face.face_detection.alignment import load_net
 from torchvision.transforms import Lambda, Compose
 from src.net_sphere import sphere20a
 from skimage import transform
+
+
+def override_init_RetinaFace(
+    self,
+    device="cpu",
+    model_path=None,
+    network="mobilenet",
+):
+    """
+    Override the __init__ method of RetinaFace to allow for the device to be passed as a string,
+    This allows to use mps, cuda, cpu, etc. as device names
+    """
+    self.device = torch.device(device)
+    self.model = load_net(model_path, self.device, network)
+
+
+RetinaFace.__init__ = override_init_RetinaFace
 
 
 emb_transform = Compose(
@@ -29,7 +47,11 @@ emb_transform = Compose(
 )
 
 
-def retina_to_cv2_box(boxes):
+def retina_to_cv2_box(boxes: np.ndarray) -> np.ndarray:
+    """Converts the boxes from retinaface format to a format compatible with SFace from cv2
+    input: [[xmin, ymin, xmax, ymax], ...]
+    output: [[xmin, ymin, w, h], ...]
+    """
     for box in boxes:
         xmin, ymin, xmax, ymax = box
         w, h = xmax - xmin, ymax - ymin
@@ -37,8 +59,11 @@ def retina_to_cv2_box(boxes):
     return np.array(boxes)
 
 
-def retina_to_cv2_keypoints(keypoints):
-    # we have to swap keypoints 0 and 1 and 3 and 4
+def retina_to_cv2_keypoints(keypoints: np.ndarray) -> np.ndarray:
+    """
+    Converts the keypoints from retinaface format to a format compatible with SFace from cv2 for alignment purposes
+    Eyes and mouth keypoints are presented in the opposite order
+    """
     for keypoint in keypoints:
         keypoint[0], keypoint[1] = keypoint[1], keypoint[0]
         keypoint[3], keypoint[4] = keypoint[4], keypoint[3]
@@ -46,6 +71,9 @@ def retina_to_cv2_keypoints(keypoints):
 
 
 def create_faces(bboxes, keypoints, scores):
+    """
+    Converts the output of the retinaface detector to a format compatible with SFace from cv2
+    """
     assert len(bboxes) == len(keypoints) == len(scores)
     bboxes = retina_to_cv2_box(bboxes)
     keypoints = retina_to_cv2_keypoints(keypoints)
@@ -70,6 +98,15 @@ MAX_PERSONS = 10
 
 
 class Engine(metaclass=Singleton):
+    """
+    This class is the main class of the application. It is responsible for the following:
+    - Detecting and tracking faces in the frame
+    - computing embeddings for each detected face
+    - Selecting bounding boxes to track
+    - Setting and unsetting selected boxes as targets
+    - Getting the coordinates of a tracked person
+    """
+
     def __init__(
         self,
         device: str = "mps",
