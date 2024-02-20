@@ -151,7 +151,7 @@ class ReferenceFrameAwareVector:
         self.reference_frame = reference_frame
 
     def to(self, reference_frame: ReferenceFrame) -> None:
-        """Express in-place the vector in the specified reference frame"""
+        """Convert in-place the vector to the specified reference frame"""
 
         if self.reference_frame is reference_frame:
             return
