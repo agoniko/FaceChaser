@@ -10,13 +10,6 @@ class Singleton(type):
         return cls._instances[cls]
 
 class TimingInfo(metaclass=Singleton):
-    def __new__(cls):
-        """creates a singleton object, if it is not created,
-        or else returns the previous singleton object"""
-        if not hasattr(cls, "instance"):
-            cls.instance = super().__new__(cls)
-        return cls.instance
-
     def __init__(self):
         self.info = dict()
         self.t = time.time()
