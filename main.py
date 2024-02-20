@@ -1,4 +1,4 @@
-# from imutils.video import WebcamVideoStream
+import json
 from src.iomanager import IOManager
 import cv2
 from datetime import datetime
@@ -46,8 +46,12 @@ if __name__ == "__main__":
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
     
-    arduinos["1"].set_computer_position(np.array([7., -22., -33.7]))
-    # arduinos["2"].set_computer_position(np.array([-7., -22., -33.7]))
+    with open('config.json', 'r') as fp:
+        arduinos_config = json.load(fp)
+    
+    for key, computer_pos in arduinos_config.items():
+        if key in arduinos.keys():
+            arduinos[key].set_computer_position(np.array(computer_pos))
 
     # created a *threaded* io manager
     def close():

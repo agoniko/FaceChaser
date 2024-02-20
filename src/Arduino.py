@@ -8,6 +8,9 @@ class Arduino:
     def __init__(self, arduino_port="/dev/cu.usbmodem21301"):
         self.ser = serial.Serial(arduino_port, 9600, timeout=1)
 
+        # Assume computer and arduino positions coincide
+        self.arduino_computer = np.array([0., 0., 0.])
+
     def set_computer_position(self, arduino_computer: np.ndarray):
         """Set computer position with respect to arduino reference system"""
         self.arduino_computer = arduino_computer
@@ -27,6 +30,8 @@ class Arduino:
         x -= x_max/2
         y -= y_max/2
 
+        # Given two points in space P1, P2
+        # <P1>_<P2> is the vector P2-P1
         computer_target = np.array([x, y, z])
         arduino_target = self.arduino_computer + computer_target
 
