@@ -1,15 +1,15 @@
 import time
 import os
 
+class Singleton(type):
+    _instances = {}
 
-class TimingInfoSingleton:
-    def __new__(cls):
-        """creates a singleton object, if it is not created,
-        or else returns the previous singleton object"""
-        if not hasattr(cls, "instance"):
-            cls.instance = super().__new__(cls)
-        return cls.instance
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__call__(*args, **kwargs)
+        return cls._instances[cls]
 
+class TimingInfo(metaclass=Singleton):
     def __init__(self):
         self.info = dict()
         self.t = time.time()
@@ -55,7 +55,7 @@ class TimingInfoSingleton:
             self.t = now
 
 
-def timethis(func, timing_info=TimingInfoSingleton()):
+def timethis(func, timing_info=TimingInfo()):
     def wrapper(*args, **kwargs):
         t1 = time.time()
         res = func(*args, **kwargs)
