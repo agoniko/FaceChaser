@@ -24,12 +24,9 @@ if __name__ == "__main__":
     parser.add_argument("--rescale", type=float, default=0.4)
     parser.add_argument("--similarity", type=float, default=0.5)
     parser.add_argument("--device", type=str, default="mps")
-    parser.add_argument(
-        "--serial_ports",
-        dest="serial_ports",
-        nargs="+",
-        action="store",
-    )
+    parser.add_argument("--num_servo", type=int, default=2)
+    parser.add_argument("--serial_port", type=str)
+
     # serial port = /dev/cu.usbmodem21201
     args = parser.parse_args()
 
@@ -37,14 +34,14 @@ if __name__ == "__main__":
     SIMILARIY_THRESHOLD = args.similarity
     DEVICE = args.device
 
-    if args.serial_ports is not None:
-        MAX_TRACKED_PERSONS = len(args.serial_ports)
+    if args.serial_port is not None:
+        arduino = Arduino(args.serial_port)
     else:
-        args.serial_ports = []
-        MAX_TRACKED_PERSONS = 2
+        arduino = None
+
+    MAX_TRACKED_PERSONS = args.num_servo
 
     engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
-    arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
 
     # created a *threaded* io manager
     def close():
@@ -72,21 +69,23 @@ if __name__ == "__main__":
         frame = io_manager.get_frame()
         frame = engine.process_frame(frame)
 
-        for arduino in arduinos.items():
-            x, y, z = engine.get_coords(arduino[0])
-            if x is not None and y is not None and z is not None:
-                z *= RESCALE_FACTOR
-                arduino[1].send_coordinates(
-                    x, y, z, frame.shape[:2][::-1], RESCALE_FACTOR
-                )
-            else:
-                arduino[1].send_coordinates(
-                    frame.shape[0] // 2,
-                    frame.shape[1] // 2,
-                    frame.shape[1] // 2,
-                    frame.shape[:2],
-                    1,
-                )
+        for i in range(MAX_TRACKED_PERSONS):
+            if arduino is not None:
+                x, y, z = engine.get_coords(str(i+1))
+                if x is not None and y is not None and z is not None:
+                    z *= RESCALE_FACTOR
+                    arduino.send_coordinates(
+                        i, x, y, z, frame.shape[:2][::-1], RESCALE_FACTOR
+                    )
+                else:
+                    arduino.send_coordinates(
+                        i,
+                        frame.shape[0] // 2,
+                        frame.shape[1] // 2,
+                        frame.shape[1] // 2,
+                        frame.shape[:2],
+                        1,
+                    )
 
         # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)

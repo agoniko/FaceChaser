@@ -7,7 +7,7 @@ class Arduino:
     def __init__(self, arduino_port="/dev/cu.usbmodem21301"):
         self.ser = serial.Serial(arduino_port, 2000000, timeout=1)
 
-    def send_coordinates(self, x, y, z, IMG_SIZE=(1920, 1080), scaling_factor=1.0):
+    def send_coordinates(self, idx, x, y, z, IMG_SIZE=(1920, 1080), scaling_factor=1.0):
         """Send x,y,z coordinates in centimeters through serial communication"""
         dst_size = IMG_SIZE[0] * scaling_factor, IMG_SIZE[1] * scaling_factor
         x /= dst_size[0]
@@ -20,7 +20,7 @@ class Arduino:
         y *= y_max
         x -= x_max/2
         y -= y_max/2
-        data = f"{x},{y},{z}\n"
+        data = f"{idx},{x},{y},{z}\n"
         self.ser.write(data.encode("utf-8"))
 
     def close(self):
