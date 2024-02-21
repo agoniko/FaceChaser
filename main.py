@@ -68,6 +68,49 @@ if __name__ == "__main__":
         global io_manager
         io_manager.stop()
 
+    def anticlockwise_rotate():
+        global arduinos
+        rf = arduinos["1"].reference_frame.parent
+        translations = arduinos["1"].reference_frame.kwargs["translations"]
+        rotations = arduinos["1"].reference_frame.kwargs["rotations"]
+        new_rotations = []
+        for ax1, ax2, angle in rotations:
+            if ax1 == 2 and ax2 == 0:
+                new_rotations.append((ax1, ax2, angle - 0.1))
+            else:
+                new_rotations.append((ax1, ax2, angle))
+        rotated_rf = ReferenceFrame(
+            "arduino_1_frame",
+            translations=translations,
+            rotations=new_rotations,
+            parent=rf,
+        )
+        print(new_rotations)
+        arduinos["1"].reference_frame.remove()
+        arduinos["1"].reference_frame = rotated_rf
+    
+    def clockwise_rotate():
+        global arduinos
+        rf = arduinos["1"].reference_frame.parent
+        translations = arduinos["1"].reference_frame.kwargs["translations"]
+        rotations = arduinos["1"].reference_frame.kwargs["rotations"]
+        new_rotations = []
+        for ax1, ax2, angle in rotations:
+            if ax1 == 2 and ax2 == 0:
+                new_rotations.append((ax1, ax2, angle + 0.1))
+            else:
+                new_rotations.append((ax1, ax2, angle))
+        rotated_rf = ReferenceFrame(
+            "arduino_1_frame",
+            translations=translations,
+            rotations=new_rotations,
+            parent=rf,
+        )
+        print(new_rotations)
+        arduinos["1"].reference_frame.remove()
+        arduinos["1"].reference_frame = rotated_rf
+
+
     key_callback_dict = {
         "r": engine.select_random,
         "u": engine.unset_targets,
@@ -76,6 +119,8 @@ if __name__ == "__main__":
         "d": engine.select_right,
         "w": engine.select_up,
         "s": engine.select_down,
+        "m": anticlockwise_rotate,
+        "n": clockwise_rotate,
     }
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[str(i)] = engine.set_target

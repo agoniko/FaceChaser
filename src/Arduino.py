@@ -6,7 +6,7 @@ from src.reference_frame_aware_vector import ReferenceFrame, ReferenceFrameAware
 
 
 class Arduino:
-    def __init__(self, serial_port, reference_frame):
+    def __init__(self, serial_port, reference_frame: ReferenceFrame):
         self.ser = serial.Serial(serial_port, 9600, timeout=1)
         self.reference_frame = reference_frame
 
@@ -16,7 +16,9 @@ class Arduino:
 
     def send_coordinates(self, target: ReferenceFrameAwareVector):
         """Send pan and tilt angles in degrees through serial communication"""
+        print(f"In {target.reference_frame.name} : {target.vector}")
         target.to(self.reference_frame)
+        print(f"In {target.reference_frame.name} : {target.vector}")
 
         pan = np.arccos(-target.vector[0] / np.sqrt(target.vector[0]**2 + target.vector[2]**2))
         tilt = np.arccos(-target.vector[1] / np.sqrt(target.vector[1]**2 + target.vector[2]**2))

@@ -446,6 +446,9 @@ class Engine(metaclass=Singleton):
             coords = self.tracked_persons[slot_key].get_coords()
             if coords is None:
                 return None
+            coords[0] /= self.rescale_factor
+            coords[1] /= self.rescale_factor
+            coords[2] /= self.rescale_factor
             return ReferenceFrameAwareVector(vector=coords, reference_frame=self.reference_frame)
         else:
             return None

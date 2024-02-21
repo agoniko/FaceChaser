@@ -11,12 +11,11 @@ class Person:
         self.identity = Identity(embedding)
         self.bbox = bbox.copy()
 
-    def get_coords(self) -> Tuple[float, float, float]:
+    def get_coords(self) -> np.ndarray:
         """
         Returns the x, y, z coordinates of the person, where x and y are the center of the bounding box.
         z is an estimation of distance from the camera, in cm, calculated using the height of the bounding box.
         """
-        # TODO implement z
         if self.bbox is not None:
             x = (self.bbox[0] + self.bbox[2]) / 2
             y = (self.bbox[1] + self.bbox[3]) / 2

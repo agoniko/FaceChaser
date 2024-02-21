@@ -103,14 +103,14 @@ class ReferenceFrame:
                     self.parent,
                     self,
                     inverse_rotation_matrix,
-                    translation,
+                    -translation,
                 )
 
             self.transformation_to_parent = get_affine_transformation(
                     self,
                     self.parent,
                     inverse_rotation_matrix,
-                    -translation,
+                    translation,
                     True
                 )
     
@@ -150,7 +150,9 @@ class ReferenceFrame:
         return self_to_root_path + root_to_rf_path
     
     def remove(self):
+        print("Rimuovo me stesso dai genitori")
         self.parent.children.remove(self)
+        print("Rimuovo me stesso dall'albero genealogico")
         ReferenceFrame.reference_frame_tree.remove(self)
 
 def load_reference_frame_tree(file_name: str) -> ReferenceFrame:
@@ -271,7 +273,7 @@ class ReferenceFrameAwareVector:
         ) -> None:
         self.vector = vector
         self.reference_frame = reference_frame
-        
+
     @timethis
     def to(self, reference_frame: ReferenceFrame) -> None:
         """Convert in-place the vector to the specified reference frame"""
