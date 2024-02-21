@@ -17,6 +17,9 @@ class IOManager:
             print("Cannot open camera")
             exit()
 
+        width = int(self._stream.get(3))
+        height = int(self._stream.get(4))
+
         self.name = name
         self._stopped = False
 
@@ -29,7 +32,7 @@ class IOManager:
         self.frame_counter = 0
 
         # Capture first frame
-        self.starting_frame = cv2.imread("logo.png")
+        self.starting_frame = cv2.resize(cv2.imread("logo.png"), (width, height))
         self.frame = self.starting_frame.copy()
         self.show_frame = self.starting_frame.copy()
         # delay to show the logo

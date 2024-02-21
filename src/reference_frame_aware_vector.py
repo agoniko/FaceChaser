@@ -150,9 +150,7 @@ class ReferenceFrame:
         return self_to_root_path + root_to_rf_path
     
     def remove(self):
-        print("Rimuovo me stesso dai genitori")
         self.parent.children.remove(self)
-        print("Rimuovo me stesso dall'albero genealogico")
         ReferenceFrame.reference_frame_tree.remove(self)
 
 def load_reference_frame_tree(file_name: str) -> ReferenceFrame:
