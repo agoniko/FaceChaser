@@ -3,9 +3,9 @@ from src.iomanager import IOManager
 import cv2
 from datetime import datetime
 import numpy as np
-from src.Engine import Engine
+from src.engine import Engine
 from src.utils import display_results
-from src.Arduino import Arduino
+from src.arduino import Arduino
 from src.reference_frame_aware_vector import load_reference_frame_tree, ReferenceFrame, ReferenceFrameAwareVector
 import argparse
 
