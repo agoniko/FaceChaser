@@ -13,6 +13,8 @@ from torchvision.transforms import Lambda, Compose
 from src.net_sphere import sphere20a
 from skimage import transform
 
+from src.reference_frame_aware_vector import ReferenceFrame, ReferenceFrameAwareVector
+
 
 def override_init_RetinaFace(
     self,
@@ -102,6 +104,7 @@ class Engine(metaclass=Singleton):
 
     def __init__(
         self,
+        reference_frame: ReferenceFrame,
         device: str = "mps",
         rescale_factor: float = 1.0,
         similarity_threshold: float = 0.6,
@@ -109,6 +112,7 @@ class Engine(metaclass=Singleton):
     ):
         """
         args:
+        - reference_frame
         - device: str, default="mps"
             The device to use for the detector and the embeddings generator
         - rescale_factor: float, default=1.0
@@ -118,6 +122,7 @@ class Engine(metaclass=Singleton):
         - max_tracked_persons: int, default=10
             The maximum number of persons to track, this param is also used for a fixed batch size for the embeddings generator
         """
+        self.reference_frame = reference_frame
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         if self.device == torch.device("cpu"):
@@ -438,9 +443,12 @@ class Engine(metaclass=Singleton):
         returns the center of the bounding box of the person in the slot_key position
         """
         if slot_key in self.tracked_persons.keys():
-            return self.tracked_persons[slot_key].get_coords()
+            coords = self.tracked_persons[slot_key].get_coords()
+            if coords is None:
+                return None
+            return ReferenceFrameAwareVector(vector=coords, reference_frame=self.reference_frame)
         else:
-            return None, None, None
+            return None
 
     # Function to align faces based on facial landmark detection
     def _alignment(self, src_img, src_pts):

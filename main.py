@@ -6,6 +6,7 @@ import numpy as np
 from src.Engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
+from src.reference_frame_aware_vector import load_reference_frame_tree, ReferenceFrame, ReferenceFrameAwareVector
 import argparse
 
 
@@ -43,8 +44,24 @@ if __name__ == "__main__":
         args.serial_ports = []
         MAX_TRACKED_PERSONS = 2
 
-    engine = Engine(DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
-    arduinos = {f"{i}": Arduino(port) for i, port in enumerate(args.serial_ports, 1)}
+    # Reference frames creation
+    load_reference_frame_tree("config")
+    for rf in ReferenceFrame.reference_frame_tree:
+        match rf.name:
+            case "computer_pixel_frame":
+                computer_pixel_frame = rf
+            case "computer_frame":
+                computer_frame = rf
+            case "arduino_1_frame":
+                arduino_1_frame = rf
+            case "arduino_2_frame":
+                arduino_2_frame = rf
+            case _:
+                pass
+            
+    arduino_reference_frames = [arduino_1_frame, arduino_2_frame]
+    engine = Engine(computer_pixel_frame, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
+    arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_reference_frames), 1)}
     
     with open('config.json', 'r') as fp:
         arduinos_config = json.load(fp)
@@ -79,20 +96,19 @@ if __name__ == "__main__":
         frame = io_manager.get_frame()
         frame = engine.process_frame(frame)
 
-        for arduino in arduinos.items():
-            x, y, z = engine.get_coords(arduino[0])
-            if x is not None and y is not None and z is not None:
-                z *= RESCALE_FACTOR
-                arduino[1].send_coordinates(
-                    x, y, z, frame.shape[:2][::-1], RESCALE_FACTOR
+        for key, arduino in arduinos.items():
+            target = engine.get_coords(key)
+            if target is not None:
+                arduino.send_coordinates(
+                    target, frame.shape[:2][::-1], RESCALE_FACTOR
                 )
             else:
-                arduino[1].send_coordinates(
-                    frame.shape[0] // 2,
-                    frame.shape[1] // 2,
-                    frame.shape[1] // 2,
-                    frame.shape[:2],
-                    1,
+                target = ReferenceFrameAwareVector(
+                    vector=np.array([0., 0., 1.]),
+                    reference_frame=arduino.reference_frame,
+                )
+                arduino.send_coordinates(
+                    target
                 )
 
         # TODO: Add a way to select a person by clicking on them
