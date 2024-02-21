@@ -9,7 +9,7 @@ from src.Arduino import Arduino
 from src.reference_frame_aware_vector import load_reference_frame_tree, ReferenceFrame, ReferenceFrameAwareVector
 import argparse
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rescale", type=float, default=0.4)
     parser.add_argument("--similarity", type=float, default=0.5)
@@ -134,3 +134,6 @@ if __name__ == "__main__":
 
         # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)
+
+if __name__ == "__main__":
+    main()
