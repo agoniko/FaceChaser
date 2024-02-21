@@ -32,7 +32,7 @@ class IOManager:
         self.frame_counter = 0
 
         # Capture first frame
-        self.starting_frame = cv2.resize(cv2.imread("logo.png"), (width, height))
+        self.starting_frame = cv2.resize(cv2.imread("images/logo.png"), (width, height))
         self.frame = self.starting_frame.copy()
         self.show_frame = self.starting_frame.copy()
         # delay to show the logo
