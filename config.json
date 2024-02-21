@@ -1,1 +1,1 @@
-{"1": [7.0, -22.0, -33.7], "2": [-7.0, -22.0, -33.7]}
+[["computer_pixel_frame", {}], ["computer_frame", {"camera": {"reference_depth": 24, "reference_size": 25, "reference_pixel_size": 1080, "image_size": [1080, 1920]}, "parent": "computer_pixel_frame"}], ["arduino_1_frame", {"translations": [[-7.0, 22.0, 33.5]], "parent": "computer_frame"}], ["arduino_2_frame", {"translations": [[7.0, 22.0, 33.5]], "parent": "computer_frame"}]]

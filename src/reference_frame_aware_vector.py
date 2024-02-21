@@ -239,7 +239,7 @@ def get_camera_transformation(
             if v.reference_frame is not from_reference_frame:
                 raise ValueError(f"vector must belong to {from_reference_frame}")
             v.vector[2] = focal * reference_size / max(v.vector[2], 1e-8)
-            scale_factor = (v.vector[2] / reference_depth) * (reference_size, reference_pixel_size)
+            scale_factor = (v.vector[2] / reference_depth) * (reference_size / reference_pixel_size)
             max_0 = image_size[0] * scale_factor
             max_1 = image_size[1] * scale_factor
             v.vector[0] = v.vector[0] * scale_factor - max_0/2.
@@ -249,7 +249,7 @@ def get_camera_transformation(
         def t(v: ReferenceFrameAwareVector):
             if v.reference_frame is not from_reference_frame:
                 raise ValueError(f"vector must belong to {from_reference_frame}")
-            scale_factor = (v.vector[2] / reference_depth) * (reference_size, reference_pixel_size)
+            scale_factor = (v.vector[2] / reference_depth) * (reference_size / reference_pixel_size)
             max_0 = image_size[0] * scale_factor
             max_1 = image_size[1] * scale_factor
             v.vector[2] = v.vector[2] / focal * reference_size

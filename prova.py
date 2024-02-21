@@ -1,2 +1,0 @@
-from src.reference_frame_aware_vector import load_reference_frame_tree
-load_reference_frame_tree('config')

@@ -45,7 +45,7 @@ if __name__ == "__main__":
         MAX_TRACKED_PERSONS = 2
 
     # Reference frames creation
-    load_reference_frame_tree("config")
+    load_reference_frame_tree("config.json")
     for rf in ReferenceFrame.reference_frame_tree:
         match rf.name:
             case "computer_pixel_frame":
@@ -63,13 +63,6 @@ if __name__ == "__main__":
     engine = Engine(computer_pixel_frame, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
     arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_reference_frames), 1)}
     
-    with open('config.json', 'r') as fp:
-        arduinos_config = json.load(fp)
-    
-    for key, computer_pos in arduinos_config.items():
-        if key in arduinos.keys():
-            arduinos[key].set_computer_position(np.array(computer_pos))
-
     # created a *threaded* io manager
     def close():
         global io_manager
@@ -99,17 +92,13 @@ if __name__ == "__main__":
         for key, arduino in arduinos.items():
             target = engine.get_coords(key)
             if target is not None:
-                arduino.send_coordinates(
-                    target, frame.shape[:2][::-1], RESCALE_FACTOR
-                )
+                arduino.send_coordinates(target)
             else:
                 target = ReferenceFrameAwareVector(
                     vector=np.array([0., 0., 1.]),
                     reference_frame=arduino.reference_frame,
                 )
-                arduino.send_coordinates(
-                    target
-                )
+                arduino.send_coordinates(target)
 
         # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)

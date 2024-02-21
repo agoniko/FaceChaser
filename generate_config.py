@@ -30,4 +30,4 @@ arduino_2_frame = ReferenceFrame(
     parent=computer_frame,
 )
 
-save_reference_frame_tree('config')
+save_reference_frame_tree('config.json')

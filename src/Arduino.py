@@ -18,8 +18,8 @@ class Arduino:
         """Send pan and tilt angles in degrees through serial communication"""
         target.to(self.reference_frame)
 
-        pan = np.arccos(-target[0] / np.sqrt(target[0]**2 + target[2]**2))
-        tilt = np.arccos(-target[1] / np.sqrt(target[1]**2 + target[2]**2))
+        pan = np.arccos(-target.vector[0] / np.sqrt(target.vector[0]**2 + target.vector[2]**2))
+        tilt = np.arccos(-target.vector[1] / np.sqrt(target.vector[1]**2 + target.vector[2]**2))
 
         pan = np.rad2deg(pan)
         tilt = np.rad2deg(tilt)
