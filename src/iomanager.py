@@ -29,12 +29,17 @@ class IOManager:
         self.frame_counter = 0
 
         # Capture first frame
-        self.starting_frame = np.zeros((500, 500, 3), dtype=np.uint8)
+        self.starting_frame = cv2.imread("logo.png")
         self.frame = self.starting_frame.copy()
         self.show_frame = self.starting_frame.copy()
+        # delay to show the logo
+        self.delay_in_seconds = 10
+        self.starting_time = time.time()
 
     def ready(self):
-        return self.frame.shape != self.starting_frame.shape
+        return (
+            self.frame != self.starting_frame
+        ).any() and time.time() - self.starting_time > self.delay_in_seconds
 
     def start(self):
         camera_thread = Thread(
@@ -48,10 +53,8 @@ class IOManager:
     def step(self, image):
         if self._stopped:
             return
-        self.show_frame = (
-            self._overlay_fps(image) if self.ready() else self.starting_frame
-        )
-        cv2.imshow(self.name, self.show_frame)
+        self.show_frame = self._overlay_fps(image)
+        cv2.imshow(self.name, self.show_frame if self.ready() else self.starting_frame)
         key = cv2.waitKey(1) & 0xFF
 
         for k, fun in self.key_callback_dict.items():
