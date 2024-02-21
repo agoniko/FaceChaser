@@ -1,6 +1,7 @@
 import time
 import os
 
+
 class Singleton(type):
     _instances = {}
 
@@ -9,13 +10,18 @@ class Singleton(type):
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
+
 class TimingInfo(metaclass=Singleton):
     def __init__(self):
         self.info = dict()
         self.t = time.time()
         self.period = 3
+        self.start_delay = 10
+        self.starting_time = time.time()
 
     def update_statistics(self, func_name: str, delta_time: float) -> None:
+        if time.time() - self.starting_time < self.start_delay:
+            return
         if func_name in self.info.keys():
             # min
             if delta_time < self.info[func_name]["min"]:
