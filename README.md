@@ -54,4 +54,13 @@ The higher this value the the slower the inference time but the better the accur
 - `--serial_ports` - The serial ports of the Arduino boards passed as a list separated just by a space. `(eg COM3 COM4)`
 - `--similarity` - The similarity threshold for face embeddings. The default value is 0.5. The higher the value the more similar the faces need to be to be considered the same person.
 
+### Controls
+- `r` - To randomly select a person (a must when no bounding box is selected)
+- `a` - To select the bounding box to the left
+- `d` - To select the bounding box to the right
+- `w` - To select the bounding box above
+- `s` - To select the bounding box below
+- `1 or 2 or ...`  - To start tracking the selected person on the i-th device
+- `u` - To unset all the tracked persons
+
 
