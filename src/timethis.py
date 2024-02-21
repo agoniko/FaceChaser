@@ -10,6 +10,11 @@ class Singleton(type):
         return cls._instances[cls]
 
 class TimingInfo(metaclass=Singleton):
+    """
+    Container of timing information, it keeps track of timing statistics of
+    functions timed by timethis decorator. It also regularly clear the screen
+    and print the timing info.
+    """
     def __init__(self):
         self.info = dict()
         self.t = time.time()
@@ -39,14 +44,14 @@ class TimingInfo(metaclass=Singleton):
 
     def print_statistics(self) -> None:
         os.system("cls" if os.name == "nt" else "clear")
-        print(f"In module {__name__}:")
+        print("Timing info:\n")
         for func_name, func_info in self.info.items():
             print(f"{func_name}")
             print(f"\tmin={func_info['min']*1000:.3f} ms")
             print(f"\tmax={func_info['max']*1000:.3f} ms")
             print(f"\tmean={func_info['mean']*1000:.3f} ms")
             print(f"\tnum_executions={func_info['num_executions']}")
-        print("-" * 40 + "\n")
+        print("-" * 40 + "\n\n")
 
     def periodic_print(self):
         now = time.time()
@@ -56,6 +61,7 @@ class TimingInfo(metaclass=Singleton):
 
 
 def timethis(func, timing_info=TimingInfo()):
+    """Function decorator: time the function and keeps track of timing statistics"""
     def wrapper(*args, **kwargs):
         t1 = time.time()
         res = func(*args, **kwargs)

@@ -2,7 +2,7 @@ import itertools
 import numpy as np
 from typing import List, Callable, Optional, Tuple
 import json
-
+from src.timethis import timethis
 
 class ReferenceFrame:
     reference_frame_tree = []
@@ -271,7 +271,8 @@ class ReferenceFrameAwareVector:
         ) -> None:
         self.vector = vector
         self.reference_frame = reference_frame
-
+        
+    @timethis
     def to(self, reference_frame: ReferenceFrame) -> None:
         """Convert in-place the vector to the specified reference frame"""
 
