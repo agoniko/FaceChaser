@@ -6,7 +6,11 @@ import numpy as np
 from src.Engine import Engine
 from src.utils import display_results
 from src.Arduino import Arduino
-from src.reference_frame_aware_vector import load_reference_frame_tree, ReferenceFrame, ReferenceFrameAwareVector
+from src.reference_frame_aware_vector import (
+    load_reference_frame_tree,
+    ReferenceFrame,
+    ReferenceFrameAwareVector,
+)
 import argparse
 
 if __name__ == "__main__":
@@ -47,11 +51,22 @@ if __name__ == "__main__":
                 arduino_2_frame = rf
             case _:
                 pass
-            
-    arduino_reference_frames = [arduino_1_frame, arduino_2_frame]
-    engine = Engine(computer_pixel_frame, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
 
-    arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_reference_frames), 1)}
+    arduino_reference_frames = [arduino_1_frame, arduino_2_frame]
+    engine = Engine(
+        computer_pixel_frame,
+        DEVICE,
+        RESCALE_FACTOR,
+        SIMILARIY_THRESHOLD,
+        MAX_TRACKED_PERSONS,
+    )
+
+    arduinos = {
+        f"{i}": Arduino(port, rf)
+        for i, (port, rf) in enumerate(
+            zip(args.serial_ports, arduino_reference_frames), 1
+        )
+    }
 
     # created a *threaded* io manager
     def close():
@@ -59,11 +74,13 @@ if __name__ == "__main__":
         io_manager.stop()
 
     selected_arduino = None
+
     def get_select_arduino_fun(arduino: Arduino):
         def select_arduino():
             global selected_arduino
             print(f"Selected {arduino}")
             selected_arduino = arduino
+
         return select_arduino
 
     def rotate(clockwise: bool):
@@ -91,7 +108,6 @@ if __name__ == "__main__":
 
     key_callback_dict = {
         "q": close,
-
         # Target selection
         "r": engine.select_random,
         "u": engine.unset_targets,
@@ -99,18 +115,18 @@ if __name__ == "__main__":
         "d": engine.select_right,
         "w": engine.select_up,
         "s": engine.select_down,
-
         # Arduino calibration
         "m": lambda: rotate(True),
         "n": lambda: rotate(False),
     }
 
-    maiusc_digits = ["!", "\"", "£"]
+    maiusc_digits = ["!", '"', "£"]
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[str(i)] = engine.set_target
         if str(i) in arduinos.keys():
-            key_callback_dict[maiusc_digits[i-1]] = get_select_arduino_fun(arduinos[str(i)])
-        
+            key_callback_dict[maiusc_digits[i - 1]] = get_select_arduino_fun(
+                arduinos[str(i)]
+            )
 
     io_manager = IOManager(
         src=0, name="Multi Tracking", key_callback_dict=key_callback_dict
@@ -127,10 +143,23 @@ if __name__ == "__main__":
                 arduino.send_coordinates(target)
             else:
                 target = ReferenceFrameAwareVector(
-                    vector=np.array([0., 0., 1.]),
+                    vector=np.array([0.0, 0.0, 1.0]),
                     reference_frame=arduino.reference_frame,
                 )
                 arduino.send_coordinates(target)
 
         # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)
+
+    print("Total number of frames: ", engine.tot_frames)
+    print("Correctly tracked frames: ", engine.correctly_tracked / 2)
+    print("Wrongly Tracked: ", engine.retina_detected2_faces - engine.correctly_tracked)
+    print("Embeddings under threshold: ", engine.frames_embeddings_under_threshold / 2)
+
+    print(
+        "Ratio correctly tracked: ", (engine.correctly_tracked / 2) / engine.tot_frames
+    )
+    print(
+        "Usefullness of matching: ",
+        1 - (engine.frames_embeddings_under_threshold / engine.correctly_tracked),
+    )
