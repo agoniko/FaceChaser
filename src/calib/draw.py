@@ -19,21 +19,21 @@ computer_basis = [
     Vector(np.array([0., 0., l]), computer_refsys),
 ]
 
-arduino_1_center = Vector(np.array([0., 0., 0.]), arduino_1_refsys)
-arduino_1_basis = [
-    Vector(np.array([l, 0., 0.]), arduino_1_refsys),
-    Vector(np.array([0., l, 0.]), arduino_1_refsys),
-    Vector(np.array([0., 0., l]), arduino_1_refsys),
-]
-
-arduino_2_center = Vector(np.array([0., 0., 0.]), arduino_2_refsys)
-arduino_2_basis = [
-    Vector(np.array([l, 0., 0.]), arduino_2_refsys),
-    Vector(np.array([0., l, 0.]), arduino_2_refsys),
-    Vector(np.array([0., 0., l]), arduino_2_refsys),
-]
-
 def get_top_view_image(width: int, height: int) -> np.ndarray:
+    arduino_1_center = Vector(np.array([0., 0., 0.]), arduino_1_refsys)
+    arduino_1_basis = [
+        Vector(np.array([l, 0., 0.]), arduino_1_refsys),
+        Vector(np.array([0., l, 0.]), arduino_1_refsys),
+        Vector(np.array([0., 0., l]), arduino_1_refsys),
+    ]
+
+    arduino_2_center = Vector(np.array([0., 0., 0.]), arduino_2_refsys)
+    arduino_2_basis = [
+        Vector(np.array([l, 0., 0.]), arduino_2_refsys),
+        Vector(np.array([0., l, 0.]), arduino_2_refsys),
+        Vector(np.array([0., 0., l]), arduino_2_refsys),
+    ]
+
     image = np.zeros((60, 60, 3), dtype=np.uint8)
 
     compute_center.to(visualization_refsys)
@@ -58,16 +58,15 @@ def get_top_view_image(width: int, height: int) -> np.ndarray:
         x = int(b.array[0])
         y = int(b.array[2])
         cv2.line(image, (x0, y0), (x, y), (255, 0, 0), thickness)
-        b.to(computer_refsys)
+        b.detach()
     
-
     # Draw arduino 1
     for b in arduino_1_basis:
         b.to(visualization_refsys)
         x = int(b.array[0])
         y = int(b.array[2])
         cv2.line(image, (a1x0, a1y0), (x, y), (0, 255, 0), thickness)
-        b.to(arduino_1_refsys)
+        b.detach()
     
     # Draw arduino 2
     for b in arduino_2_basis:
@@ -75,11 +74,7 @@ def get_top_view_image(width: int, height: int) -> np.ndarray:
         x = int(b.array[0])
         y = int(b.array[2])
         cv2.line(image, (a2x0, a2y0), (x, y), (0, 255, 0), thickness)
-        b.to(arduino_2_refsys)
-
-    compute_center.to(computer_refsys)
-    arduino_1_center.to(arduino_1_refsys)
-    arduino_2_center.to(arduino_2_refsys)
+        b.detach()
     
     image = cv2.resize(image, (width, height))
     return image
