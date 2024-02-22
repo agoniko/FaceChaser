@@ -5,11 +5,17 @@ from src.refsys.transformations import Rotation
 from src.refsys.transformations import Translation
 from src.refsys.vector import Vector
 
-computer_refsys = ReferenceSystem('')
-v = Vector(np.array([0., 0., 50.]), computer_refsys)
+rf0 = ReferenceSystem('rf0')
+
+rot = Translation(1., 1., 0.)
+rf1 = rf0.apply('rf1', rot)
+v = Vector(np.array([0., 0., 0.]), rf1)
 print(f"Created: {v}")
 
-rot = Rotation('y', 'z', 45, 'deg')
-vis_refsys = computer_refsys.apply('vis', rot)
-v.to(vis_refsys)
+rot = Translation(1., 0., 0.)
+rf2 = rf0.apply('rf2', rot)
+v.to(rf2)
+print(f"Converted: {v}")
+
+v.to(rf0)
 print(f"Converted: {v}")

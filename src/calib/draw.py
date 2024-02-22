@@ -10,7 +10,7 @@ from src.refsys.vector import Vector
 translation = Translation(-30., 10., -5.)
 visualization_refsys = computer_refsys.apply('visualization', translation)
 
-l = 10.
+l = 5.
 thickness = 1
 compute_center = Vector(np.array([0., 0., 0.]), computer_refsys)
 computer_basis = [
@@ -63,12 +63,9 @@ def get_top_view_image(width: int, height: int) -> np.ndarray:
 
     # Draw arduino 1
     for b in arduino_1_basis:
-        #print(b.array)
         b.to(visualization_refsys)
-        print(b)
         x = int(b.array[0])
         y = int(b.array[2])
-        #print("Drawing", (a1x0, a1y0), (x, y))
         cv2.line(image, (a1x0, a1y0), (x, y), (0, 255, 0), thickness)
         b.to(arduino_1_refsys)
     
