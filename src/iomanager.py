@@ -60,9 +60,10 @@ class IOManager:
             return
         self.show_frame = self._overlay_fps(image)
 
-        calib_top_view = draw.get_top_view_image(self.show_frame.shape[1], 100)
         if self.ready():
-            cv2.imshow(self.name, np.concatenate((self.show_frame, calib_top_view)))
+            calib_top_view = draw.get_top_view_image(self.show_frame.shape[1], 200)
+            self.show_frame = np.vstack((self.show_frame, calib_top_view))
+            cv2.imshow(self.name, self.show_frame)
         else:
             cv2.imshow(self.name, self.starting_frame)
         key = cv2.waitKey(1) & 0xFF

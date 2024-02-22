@@ -103,12 +103,12 @@ def main():
 
 
         # pan
-        "m": lambda: partial(pan_rotate, clockwise=False),
-        "n": lambda: partial(pan_rotate, clockwise=True),
+        "m": partial(pan_rotate, clockwise=False),
+        "n": partial(pan_rotate, clockwise=True),
 
         #tilt
-        "k": lambda: partial(tilt_rotate, clockwise=False),
-        "j": lambda: partial(tilt_rotate, clockwise=True),
+        "k": partial(tilt_rotate, clockwise=False),
+        "j": partial(tilt_rotate, clockwise=True),
     }
 
     maiusc_digits = ["!", "\"", "£"]

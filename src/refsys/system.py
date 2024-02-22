@@ -72,19 +72,19 @@ class ReferenceSystem:
         return self._from_parent
     
     def _get_children_vectors(self):
+        """Returns children vectors along with path from self to their reference system"""
         children_vectors = []
         path = []
-        self._get_children_vectors_core(children_vectors, path)
+        self._get_children_vectors_recursive(children_vectors, path)
         return children_vectors
     
-    def _get_children_vectors_core(self, children_vectors, path):
-        """Returns children vectors along with path from self to their reference system"""
+    def _get_children_vectors_recursive(self, children_vectors, path):
         path = path + [self]
         for v in self._vectors:
             children_vectors.append((v, path))
         
-        for rf in self._children:
-            rf._get_children_vectors_core(children_vectors, path)
+        for rf in self._children.values():
+            rf._get_children_vectors_recursive(children_vectors, path)
     
     @from_parent_transformation.setter
     def from_parent_transformation(self, value):
@@ -108,7 +108,9 @@ class ReferenceSystem:
         # Bring each vector array back to their reference system
         for v, path in children_vectors:
             for rf in path:
+                print(rf.name)
                 v.array = rf._from_parent(v.array)
+            print()
 
     def __repr__(self):
         return f"{self.name}__reference_system"

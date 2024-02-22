@@ -57,6 +57,8 @@ class Identity(Transformation):
         pass
     def _compute_inverse(self):
         pass
+    def copy(self):
+        return Identity()
 
 class Rotation(Transformation):
     """Performs anticlockwise rotation"""

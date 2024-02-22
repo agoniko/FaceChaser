@@ -450,8 +450,20 @@ class Engine(metaclass=Singleton):
             coords[0] /= self.rescale_factor
             coords[1] /= self.rescale_factor
             coords[2] /= self.rescale_factor
-            #TODO depth estimation
-            return Vector(array=coords, reference_system=self.reference_system)
+            
+            face_height = 25.
+            reference_face_pixel_height = 480.
+            reference_depth = 19.
+
+            focal = reference_depth * reference_face_pixel_height / face_height
+            z = focal * face_height / coords[2]
+            cm_per_pixel = (z / reference_depth) * (face_height / reference_face_pixel_height)
+            x_max = 640 * cm_per_pixel # TODO image shape
+            y_max = 480 * cm_per_pixel
+            x = coords[0] * cm_per_pixel - x_max/2.
+            y = coords[1] * cm_per_pixel - y_max/2.
+
+            return Vector(array=np.array([x, y, z]), reference_system=self.reference_system)
         else:
             return None
 
