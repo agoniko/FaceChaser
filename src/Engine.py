@@ -41,41 +41,11 @@ emb_transform = Compose(
     ]
 )
 
-
-def retina_to_cv2_box(boxes: np.ndarray) -> np.ndarray:
-    """Converts the boxes from retinaface format to a format compatible with SFace from cv2
-    input: [[xmin, ymin, xmax, ymax], ...]
-    output: [[xmin, ymin, w, h], ...]
-    """
-    for box in boxes:
-        xmin, ymin, xmax, ymax = box
-        w, h = xmax - xmin, ymax - ymin
-        box[0], box[1], box[2], box[3] = xmin, ymin, w, h
-    return np.array(boxes)
-
-
-def retina_to_cv2_keypoints(keypoints: np.ndarray) -> np.ndarray:
-    """
-    Converts the keypoints from retinaface format to a format compatible with SFace from cv2 for alignment purposes
-    Eyes and mouth keypoints are presented in the opposite order
-    """
-    for keypoint in keypoints:
-        keypoint[0], keypoint[1] = keypoint[1], keypoint[0]
-        keypoint[3], keypoint[4] = keypoint[4], keypoint[3]
-    return np.array(keypoints)
-
-
 def create_faces(bboxes, keypoints, scores):
     """
     Converts the output of the retinaface detector to a format compatible with SFace from cv2
     """
     assert len(bboxes) == len(keypoints) == len(scores)
-    # bboxes = retina_to_cv2_box(bboxes)
-    # keypoints = retina_to_cv2_keypoints(keypoints)
-    # bboxes = bboxes.reshape(bboxes.shape[0], -1)
-    # keypoints = keypoints.reshape(keypoints.shape[0], -1)
-    # scores = np.array(scores).reshape(-1)
-
     faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
     return faces
 
@@ -88,7 +58,7 @@ class Singleton(type):
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
 
-
+#For fixed batch size
 MAX_PERSONS = 10
 
 
@@ -155,12 +125,6 @@ class Engine(metaclass=Singleton):
         self.left = False
         self.up = False
         self.down = False
-
-        # for quantitative evaluation
-        self.tot_frames = 0
-        self.correctly_tracked = 0
-        self.frames_embeddings_under_threshold = 0
-        self.retina_detected2_faces = 0
 
     def _detect_faces_cpu(
         self, img_rgb: np.ndarray, threshold: float = 0.7
@@ -336,17 +300,7 @@ class Engine(metaclass=Singleton):
             self.track_with_embeddings = False
 
         self.num_faces = len(pred_bboxes)
-
-        if len(self.tracked_persons) == 2:
-            self.tot_frames += 1
-            if self.tracked_persons["1"].bbox is not None:
-                self.correctly_tracked += 1
-            if self.tracked_persons["2"].bbox is not None:
-                self.correctly_tracked += 1
-
-        if self.num_faces == 2 and len(self.tracked_persons) == 2:
-            self.retina_detected2_faces += 1
-
+        
         # No person detected
         if len(pred_bboxes) == 0:
             # Handle tracked_persons
@@ -479,11 +433,7 @@ class Engine(metaclass=Singleton):
                 dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
                 idx = np.argmin(dist)
                 person.update(embeddings[idx], pred_bboxes[idx])
-                if (
-                    similarities[i][idx] < self.similarity_threshold
-                    and person is not self.selected_person
-                ):
-                    self.frames_embeddings_under_threshold += 1
+
 
     def set_target(self, slot_key: str) -> None:
         """
