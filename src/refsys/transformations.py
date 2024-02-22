@@ -92,7 +92,6 @@ class Rotation(Transformation):
             "angle": self._angle,
             "unit": self._unit
         })
-        self.has_inverse = True
     
     @property
     def ax1(self):
@@ -161,9 +160,71 @@ class Rotation(Transformation):
         # ax2 is mapped to this
         self.direct_rotation_matrix[ax1, ax2] = -np.sin(rad_angle)
         self.direct_rotation_matrix[ax2, ax2] =  np.cos(rad_angle)
-        self._direct = lambda x: self.direct_rotation_matrix @ x
+        self._direct = lambda array: self.direct_rotation_matrix @ array
     
     def _compute_inverse(self):
         # The matrix is orthonormal
         self.inverse_rotation_matrix = self.direct_rotation_matrix.T.copy()
-        self._inverse = lambda x: self.inverse_rotation_matrix @ x
+        self._inverse = lambda array: self.inverse_rotation_matrix @ array
+
+class Translation(Transformation):
+    def __init__(self, x: float, y: float, z: float):
+        self._x = x
+        self._y = y
+        self._z = z
+        super().__init__({
+            "x": self._x,
+            "y": self._y,
+            "z": self._z,
+        })
+
+        @property
+        def x(self):
+            return self._x
+        
+        @x.setter
+        def x(self, value):
+            self._x = value
+            self.params = {
+            "x": self._x,
+            "y": self._y,
+            "z": self._z,
+            }
+        
+        @property
+        def y(self):
+            return self._y
+        
+        @y.setter
+        def y(self, value):
+            self._y = value
+            self.params = {
+            "x": self._x,
+            "y": self._y,
+            "z": self._z,
+            }
+        
+        @property
+        def z(self):
+            return self._z
+        
+        @z.setter
+        def z(self, value):
+            self._z = value
+            self.params = {
+            "x": self._x,
+            "y": self._y,
+            "z": self._z,
+            }
+
+    def copy(self):
+        return Translation(self._x, self._y, self._z)
+
+    def _compute_direct(self):
+        self.translation_array = np.array([self._x, self._y, self._z])
+        self._direct = lambda array: self.translation_array + array
+    
+    def _compute_inverse(self):
+        # The matrix is orthonormal
+        self.inverse_translation_array = - self.translation_array.copy()
+        self._inverse = lambda array: self.inverse_translation_array + array
