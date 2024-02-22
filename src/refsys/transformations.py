@@ -13,7 +13,6 @@ class Transformation(ABC):
         self.has_inverse = True
         self._direct = lambda x: x
         self._inverse = lambda x: x
-        self._version = 0
         self.params = params
 
     @abstractmethod
@@ -38,7 +37,6 @@ class Transformation(ABC):
     
     @params.setter
     def params(self, params):
-        self._version += 1
         self._params = params
         self._compute_direct()
         self._compute_inverse()

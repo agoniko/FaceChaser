@@ -8,9 +8,7 @@ rf1 = ReferenceSystem('')
 v = Vector(np.array([1., 0., 0.]), rf1)
 print(f"Created {v}")
 
-print("We now create a new ref sys and move there v")
 rot = Rotation('x', 'y', 90, 'deg')
-print('rot version =', rot._version)
 rf2 = rf1.apply('rotated', rot)
 
 v.to(rf2)

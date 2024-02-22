@@ -15,7 +15,6 @@ class ReferenceSystem:
         self.name = name
         self._parent = None
         self._from_parent = None
-        self._from_parent_version = None
         self._children = dict()
         self._vectors = []
         ReferenceSystem._ref_sys_graph[name] = self
@@ -42,7 +41,6 @@ class ReferenceSystem:
         rf = ReferenceSystem(name)
         rf._parent = self
         rf._from_parent = transformation
-        rf._from_parent_version = transformation._version
         assert name not in self._children.keys(), f"{name} should not be in {self.name} children"
         self._children[name] = rf
         return rf
