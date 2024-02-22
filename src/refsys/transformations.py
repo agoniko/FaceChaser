@@ -13,6 +13,7 @@ class Transformation(ABC):
         self.has_inverse = True
         self._direct = lambda x: x
         self._inverse = lambda x: x
+        self._version = 0
         self.params = params
 
     @abstractmethod
@@ -37,9 +38,14 @@ class Transformation(ABC):
     
     @params.setter
     def params(self, params):
+        self._version += 1
         self._params = params
         self._compute_direct()
         self._compute_inverse()
+    
+    @abstractmethod
+    def copy(self):
+        ...
         
 
     def __call__(self, array: np.ndarray) -> np.ndarray:
@@ -56,18 +62,24 @@ class Identity(Transformation):
 
 class Rotation(Transformation):
     """Performs anticlockwise rotation"""
-
-    def __init__(self, ax1: int, ax2: int, angle: float, unit: str):
+    ax_to_int = {'x': 0, 'y': 1, 'z': 2}
+    def __init__(self, ax1: str, ax2: str, angle: float, unit: str):
         """Performs clockwise rotation
         
-        Rotation is performed on the oriented plane ax1ax2.
+        Rotation is performed on the oriented plane ax1ax2. Axes must be different.
 
         Args:
-            ax1: axis from which perform the rotation (consider it as x axis)
-            ax2: axis towards which perform the rotation (consider it as y axis)
+            ax1: axis from which perform the rotation, can be 'x', 'y' or 'z' 
+            ax2: axis towards which perform the rotation, can be 'x', 'y' or 'z'
             angle: angle of anticlockwise rotation (as usually done in xy cartesian plane)
             unit: unit of measure of angle, can be "deg" or "rad"
         """
+        if ax1 not in Rotation.ax_to_int.keys():
+            raise ValueError(f"ax1 expected to be either 'x', 'y' or 'z', received {ax1}")
+        if ax2 not in Rotation.ax_to_int.keys():
+            raise ValueError(f"ax2 expected to be either 'x', 'y' or 'z', received {ax2}")
+        if ax1 == ax2:
+            raise ValueError(f"ax1 and ax2 must be different")
         self._ax1 = ax1
         self._ax2 = ax2
         self._angle = angle
@@ -132,17 +144,23 @@ class Rotation(Transformation):
             self._unit = 'deg'
         self._params['unit'] = self._unit
         self._params['angle'] = self._angle
+    
+    def copy(self):
+        return Rotation(self._ax1, self._ax2, self._angle, self._unit)
 
     def _compute_direct(self):
         if self._unit == "deg":
             rad_angle = self._angle * np.pi / 180.
         self.direct_rotation_matrix = np.eye(3)
+
+        ax1 = Rotation.ax_to_int[self._ax1]
+        ax2 = Rotation.ax_to_int[self._ax2]
         # ax1 is mapped to this
-        self.direct_rotation_matrix[self._ax1, self._ax1] =  np.cos(rad_angle)
-        self.direct_rotation_matrix[self._ax2, self._ax1] =  np.sin(rad_angle)
+        self.direct_rotation_matrix[ax1, ax1] =  np.cos(rad_angle)
+        self.direct_rotation_matrix[ax2, ax1] =  np.sin(rad_angle)
         # ax2 is mapped to this
-        self.direct_rotation_matrix[self._ax1, self._ax2] = -np.sin(rad_angle)
-        self.direct_rotation_matrix[self._ax2, self._ax2] =  np.cos(rad_angle)
+        self.direct_rotation_matrix[ax1, ax2] = -np.sin(rad_angle)
+        self.direct_rotation_matrix[ax2, ax2] =  np.cos(rad_angle)
         self._direct = lambda x: self.direct_rotation_matrix @ x
     
     def _compute_inverse(self):
