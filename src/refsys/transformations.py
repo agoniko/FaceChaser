@@ -145,6 +145,9 @@ class Rotation(Transformation):
     def copy(self):
         return Rotation(self._ax1, self._ax2, self._angle, self._unit)
 
+    def increment_angle(self, amount: float):
+        return Rotation(self._ax1, self.ax2, self._angle + amount, self._unit)
+        
     def _compute_direct(self):
         if self._unit == "deg":
             rad_angle = self._angle * np.pi / 180.

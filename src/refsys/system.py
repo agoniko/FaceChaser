@@ -15,6 +15,7 @@ class ReferenceSystem:
         self.name = name
         self._parent = None
         self._from_parent = None
+        self._to_parent = None
         self._children = dict()
         self._vectors = []
         ReferenceSystem._ref_sys_graph[name] = self
@@ -40,7 +41,8 @@ class ReferenceSystem:
         """
         rf = ReferenceSystem(name)
         rf._parent = self
-        rf._from_parent = transformation
+        rf._from_parent = transformation.inverse
+        rf._to_parent = transformation
         assert name not in self._children.keys(), f"{name} should not be in {self.name} children"
         self._children[name] = rf
         return rf
@@ -51,7 +53,7 @@ class ReferenceSystem:
             raise ValueError(f"v must live in {self.name}")
         if self._parent is None:
             raise RuntimeError(f"{self.name} is root")
-        v.array = self._from_parent.inverse(v.array)
+        v.array = self._to_parent(v.array)
         v.reference_system = self._parent
         self._vectors.remove(v)
         self._parent._vectors.append(v)
@@ -86,7 +88,7 @@ class ReferenceSystem:
     
     @from_parent_transformation.setter
     def from_parent_transformation(self, value):
-        """Set the transformation that apply to parent vectors for getting a representation in this reference frame"""
+        """Modifies this reference system as it was created with self.parent.apply(self.name, value)"""
         if self._from_parent is None:
             raise RuntimeError(f"{self.name} is root")
         if value is self._from_parent:
@@ -97,10 +99,11 @@ class ReferenceSystem:
         # Bring each vector array back to the parent of this reference system
         for v, path in children_vectors:
             for rf in reversed(path):
-                v.array = rf._from_parent.inverse(v.array)
+                v.array = rf._to_parent(v.array)
         
         # Set new transformation
-        self._from_parent = value
+        self._from_parent = value.inverse
+        self._to_parent = value
 
         # Bring each vector array back to their reference system
         for v, path in children_vectors:

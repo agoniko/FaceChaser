@@ -2,24 +2,31 @@ import numpy as np
 
 from src.refsys.system import ReferenceSystem
 from src.refsys.transformations import Rotation
+from src.refsys.transformations import Translation
 from src.refsys.vector import Vector
 
-rf1 = ReferenceSystem('')
-v = Vector(np.array([1., 0., 0.]), rf1)
+computer_refsys = ReferenceSystem('')
+v = Vector(np.array([0., 0., 50.]), computer_refsys)
 print(f"Created {v}")
 
-rot = Rotation('x', 'y', 90, 'deg')
-rf2 = rf1.apply('rotated', rot)
+transl = Translation(-30., 10., -30.)
+vis_refsys = computer_refsys.apply('vis', transl)
+v.to(vis_refsys)
 
-v.to(rf2)
-print(f"After conversion: {v}\n")
+print(f"Created {v}")
 
-print("Let's now change rot by first copying it")
-new_rot = rot.copy()
-new_rot.angle = new_rot.angle + 180
-print('new rot version =', rot._version)
+transl = Translation(-7., 22., 30.)
+arduino_refsys = computer_refsys.apply('arduino', transl)
 
-rf2.from_parent_transformation = new_rot
+v.to(arduino_refsys)
+print(f"Converted: {v}")
 
-print("\nLet's see v:")
-print(f"{v}\n")
+rot = Rotation('z', 'x', 10, 'deg')
+arduino_rot_refsys = arduino_refsys.apply('rotated', rot)
+
+v.to(arduino_rot_refsys)
+print(f"Converted: {v}")
+
+arduino_rot_refsys.from_parent_transformation = rot.increment_angle(10)
+
+print(f"Updated: {v}")
