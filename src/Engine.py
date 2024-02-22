@@ -70,11 +70,11 @@ def create_faces(bboxes, keypoints, scores):
     Converts the output of the retinaface detector to a format compatible with SFace from cv2
     """
     assert len(bboxes) == len(keypoints) == len(scores)
-    bboxes = retina_to_cv2_box(bboxes)
-    keypoints = retina_to_cv2_keypoints(keypoints)
-    bboxes = bboxes.reshape(bboxes.shape[0], -1)
-    keypoints = keypoints.reshape(keypoints.shape[0], -1)
-    scores = np.array(scores).reshape(-1)
+    # bboxes = retina_to_cv2_box(bboxes)
+    # keypoints = retina_to_cv2_keypoints(keypoints)
+    # bboxes = bboxes.reshape(bboxes.shape[0], -1)
+    # keypoints = keypoints.reshape(keypoints.shape[0], -1)
+    # scores = np.array(scores).reshape(-1)
 
     faces = np.hstack((bboxes, keypoints, scores.reshape(-1, 1)))
     return faces
@@ -124,12 +124,15 @@ class Engine(metaclass=Singleton):
         """
         self.reference_frame = reference_frame
         self.device = torch.device(device)
-        self.detector = RetinaFace(device, network="mobilenet")
         if self.device == torch.device("cpu"):
             self.embedding_generator = cv2.FaceRecognizerSF_create(
                 "src/model/face_recognizer_fast.onnx", ""
             )
+            self.detector = cv2.FaceDetectorYN_create(
+                "src/model/face_detection_yunet_2023mar_int8.onnx", "", (0, 0)
+            )
         else:
+            self.detector = RetinaFace(device, network="mobilenet")
             self.embedding_generator = sphere20a(feature=True)
             self.embedding_generator.load_state_dict(
                 torch.load("./src/model/sphere20a_20171020.pth")
@@ -153,8 +156,42 @@ class Engine(metaclass=Singleton):
         self.up = False
         self.down = False
 
+        # for quantitative evaluation
+        self.tot_frames = 0
+        self.correctly_tracked = 0
+        self.frames_embeddings_under_threshold = 0
+        self.retina_detected2_faces = 0
+
+    def _detect_faces_cpu(
+        self, img_rgb: np.ndarray, threshold: float = 0.7
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        width, height = img_rgb.shape[1], img_rgb.shape[0]
+        self.detector.setInputSize((width, height))
+        self.detector.setScoreThreshold(threshold)
+
+        _, faces = self.detector.detect(img_rgb)
+        if faces is None:
+            return np.array([]), np.array([]), np.array([])
+
+        bboxes = np.array(
+            [face[:4] for face in faces if face[-1] > threshold], dtype=np.float32
+        )
+        keypoints = np.array(
+            [face[4 : len(face) - 1] for face in faces if face[-1] > threshold],
+            dtype=np.float32,
+        )
+        scores = np.array(
+            [face[-1] for face in faces if face[-1] > threshold], dtype=np.float32
+        )
+
+        # converting bboxes from [xmin, ymin, w, h] to [xmin, ymin, xmax, ymax]
+        bboxes[:, 2] = bboxes[:, 0] + bboxes[:, 2]
+        bboxes[:, 3] = bboxes[:, 1] + bboxes[:, 3]
+
+        return bboxes, keypoints, scores
+
     @timethis
-    def _detect_faces(
+    def _detect_faces_gpu(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -178,6 +215,17 @@ class Engine(metaclass=Singleton):
 
             return bboxes, keypoints, scores
 
+    def _detect_faces(
+        self, img_rgb: np.ndarray, threshold: float = 0.7
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Selects the appropriate method for detecting faces based on the device
+        """
+        if self.device == torch.device("cpu"):
+            return self._detect_faces_cpu(img_rgb, threshold)
+        else:
+            return self._detect_faces_gpu(img_rgb, threshold)
+
     def _get_embeddings_gpu(
         self,
         img_rgb: np.ndarray,
@@ -191,10 +239,10 @@ class Engine(metaclass=Singleton):
         assert len(bboxes) == len(keypoints) == len(scores)
 
         faces = []
-        for i, bbox in enumerate(bboxes):
+        for keypoint in keypoints:
             face = self._alignment(
                 img_rgb,
-                keypoints[i],
+                keypoint,
             )
             faces.append(face)
         faces = emb_transform(np.array(faces))
@@ -288,6 +336,16 @@ class Engine(metaclass=Singleton):
             self.track_with_embeddings = False
 
         self.num_faces = len(pred_bboxes)
+
+        if len(self.tracked_persons) == 2:
+            self.tot_frames += 1
+            if self.tracked_persons["1"].bbox is not None:
+                self.correctly_tracked += 1
+            if self.tracked_persons["2"].bbox is not None:
+                self.correctly_tracked += 1
+
+        if self.num_faces == 2:
+            self.retina_detected2_faces += 1
 
         # No person detected
         if len(pred_bboxes) == 0:
@@ -417,10 +475,15 @@ class Engine(metaclass=Singleton):
                 else:
                     person.bbox = None  # person is not in the frame
         else:
-            for person in tracked_persons:
+            for i, person in enumerate(tracked_persons):
                 dist = np.linalg.norm(pred_bboxes - person.bbox[None], axis=1)
                 idx = np.argmin(dist)
                 person.update(embeddings[idx], pred_bboxes[idx])
+                if (
+                    similarities[i][idx] < self.similarity_threshold
+                    and person is not self.selected_person
+                ):
+                    self.frames_embeddings_under_threshold += 1
 
     def set_target(self, slot_key: str) -> None:
         """
@@ -449,7 +512,9 @@ class Engine(metaclass=Singleton):
             coords[0] /= self.rescale_factor
             coords[1] /= self.rescale_factor
             coords[2] /= self.rescale_factor
-            return ReferenceFrameAwareVector(vector=coords, reference_frame=self.reference_frame)
+            return ReferenceFrameAwareVector(
+                vector=coords, reference_frame=self.reference_frame
+            )
         else:
             return None
 
