@@ -161,5 +161,5 @@ if __name__ == "__main__":
     )
     print(
         "Usefullness of matching: ",
-        1 - (engine.frames_embeddings_under_threshold / engine.correctly_tracked),
+        engine.frames_embeddings_under_threshold / engine.correctly_tracked,
     )

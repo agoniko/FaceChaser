@@ -36,7 +36,7 @@ class IOManager:
         self.frame = self.starting_frame.copy()
         self.show_frame = self.starting_frame.copy()
         # delay to show the logo
-        self.delay_in_seconds = 10
+        self.delay_in_seconds = 6
         self.starting_time = time.time()
 
     def ready(self):

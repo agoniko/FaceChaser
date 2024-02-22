@@ -190,7 +190,6 @@ class Engine(metaclass=Singleton):
 
         return bboxes, keypoints, scores
 
-    @timethis
     def _detect_faces_gpu(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -214,7 +213,8 @@ class Engine(metaclass=Singleton):
             )
 
             return bboxes, keypoints, scores
-
+    
+    @timethis
     def _detect_faces(
         self, img_rgb: np.ndarray, threshold: float = 0.7
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -289,10 +289,10 @@ class Engine(metaclass=Singleton):
         if self.device == torch.device("cpu"):
             # deepcopy is used because order of coordinates is switched for the alignment function of SFace
             return self._get_embeddings_cpu(
-                copy.deepcopy(img_rgb),
-                copy.deepcopy(bboxes),
-                copy.deepcopy(keypoints),
-                copy.deepcopy(scores),
+                img_rgb,
+                bboxes,
+                keypoints,
+                scores,
             )
         else:
             return self._get_embeddings_gpu(img_rgb, bboxes, keypoints, scores)
@@ -344,7 +344,7 @@ class Engine(metaclass=Singleton):
             if self.tracked_persons["2"].bbox is not None:
                 self.correctly_tracked += 1
 
-        if self.num_faces == 2:
+        if self.num_faces == 2 and len(self.tracked_persons) == 2:
             self.retina_detected2_faces += 1
 
         # No person detected
