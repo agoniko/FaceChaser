@@ -4,11 +4,14 @@ This project is a collaborative effort between [agoniko](https://github.com/agon
 
 ## Overview
 
-FaceChaser is a real time video stream application that utilizes the RetinaFace model from the [batch_face](https://github.com/elliottzheng/batch-face) library for face detection. It employs a combination of bounding box distances and face embeddings to track faces across frames.
+FaceChaser is a real-time video stream application for face detection and tracking. 
+It allows users to select multiple individuals to track while coordinating with multiple 2DoF robotic arms for physical tracking.
 
-Face embeddings are extracted using the SphereFace model from the [sphereface_pytorch](https://github.com/clcarwin/sphereface_pytorch) repo. 
+Face Detection uses the RetinaFace model from the [batch_face](https://github.com/elliottzheng/batch-face) library. 
 
-The user can select faces present in the video stream and track multiple persons simultaneously. The coordinates of each tracked person are then sent to multiple 2DoF pan-tilt servo systems to follow each tracked person's face.
+Face embeddings are extracted using the SphereFace model from the [sphereface_pytorch](https://github.com/clcarwin/sphereface_pytorch) repo or with [SFace](https://arxiv.org/pdf/2205.12010.pdf) model from the official quantized open-cv implementation for cpu inference.
+
+Tracking employs a combination of bounding box distances and face embeddings to track faces across frames.
 
 If you have N robotic arms you can track up to N persons simultaneously. You can also track a single person on multiple robotic arms, a system reference transformation is used to calculate the pan-tilt angles for each robotic arm with respect to their position in the room.
 
