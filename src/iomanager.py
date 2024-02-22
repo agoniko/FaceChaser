@@ -1,9 +1,11 @@
 import time
 from threading import Thread
-import cv2
 from typing import Dict, Callable
-import numpy as np
 
+import numpy as np
+import cv2
+
+import src.calib.draw as draw
 
 class IOManager:
     def __init__(
@@ -57,7 +59,12 @@ class IOManager:
         if self._stopped:
             return
         self.show_frame = self._overlay_fps(image)
-        cv2.imshow(self.name, self.show_frame if self.ready() else self.starting_frame)
+
+        calib_top_view = draw.get_top_view_image(self.show_frame.shape[1], 100)
+        if self.ready():
+            cv2.imshow(self.name, np.concatenate((self.show_frame, calib_top_view)))
+        else:
+            cv2.imshow(self.name, self.starting_frame)
         key = cv2.waitKey(1) & 0xFF
 
         for k, fun in self.key_callback_dict.items():

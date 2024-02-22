@@ -13,7 +13,8 @@ from torchvision.transforms import Lambda, Compose
 from src.net_sphere import sphere20a
 from skimage import transform
 
-from src.reference_frame_aware_vector import ReferenceFrame, ReferenceFrameAwareVector
+from src.refsys.system import ReferenceSystem
+from src.refsys.vector import Vector
 
 
 def override_init_RetinaFace(
@@ -104,7 +105,7 @@ class Engine(metaclass=Singleton):
 
     def __init__(
         self,
-        reference_frame: ReferenceFrame,
+        reference_system: ReferenceSystem,
         device: str = "mps",
         rescale_factor: float = 1.0,
         similarity_threshold: float = 0.6,
@@ -122,7 +123,7 @@ class Engine(metaclass=Singleton):
         - max_tracked_persons: int, default=10
             The maximum number of persons to track, this param is also used for a fixed batch size for the embeddings generator
         """
-        self.reference_frame = reference_frame
+        self.reference_system = reference_system
         self.device = torch.device(device)
         self.detector = RetinaFace(device, network="mobilenet")
         if self.device == torch.device("cpu"):
@@ -449,7 +450,8 @@ class Engine(metaclass=Singleton):
             coords[0] /= self.rescale_factor
             coords[1] /= self.rescale_factor
             coords[2] /= self.rescale_factor
-            return ReferenceFrameAwareVector(vector=coords, reference_frame=self.reference_frame)
+            #TODO depth estimation
+            return Vector(array=coords, reference_system=self.reference_system)
         else:
             return None
 

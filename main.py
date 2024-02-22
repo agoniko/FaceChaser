@@ -1,13 +1,26 @@
-import json
-from src.iomanager import IOManager
-import cv2
-from datetime import datetime
-import numpy as np
-from src.engine import Engine
-from src.utils import display_results
-from src.arduino import Arduino
-from src.reference_frame_aware_vector import load_reference_frame_tree, ReferenceFrame, ReferenceFrameAwareVector
 import argparse
+from datetime import datetime
+from functools import partial
+import json
+
+
+import numpy as np
+import cv2
+
+from src.arduino import Arduino
+from src.calib import computer_refsys
+from src.calib import pos_1_refsys
+from src.calib import pos_2_refsys
+from src.calib import pan_1_refsys
+from src.calib import pan_2_refsys
+from src.calib import tilt_1_refsys
+from src.calib import tilt_2_refsys
+from src.calib import arduino_1_refsys
+from src.calib import arduino_2_refsys
+from src.engine import Engine
+from src.iomanager import IOManager
+from src.refsys.vector import Vector
+from src.utils import display_results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -32,62 +45,46 @@ def main():
     else:
         args.serial_ports = []
         MAX_TRACKED_PERSONS = 2
-
-    # Reference frames creation
-    load_reference_frame_tree("config.json")
-    for rf in ReferenceFrame.reference_frame_tree:
-        match rf.name:
-            case "computer_pixel_frame":
-                computer_pixel_frame = rf
-            case "computer_frame":
-                computer_frame = rf
-            case "arduino_1_frame":
-                arduino_1_frame = rf
-            case "arduino_2_frame":
-                arduino_2_frame = rf
-            case _:
-                pass
             
-    arduino_reference_frames = [arduino_1_frame, arduino_2_frame]
-    engine = Engine(computer_pixel_frame, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
+    arduino_refsys_list = [
+        (pos_1_refsys, pan_1_refsys, tilt_1_refsys, arduino_1_refsys),
+        (pos_2_refsys, pan_2_refsys, tilt_2_refsys, arduino_2_refsys),
+    ]
+    engine = Engine(computer_refsys, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
 
-    arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_reference_frames), 1)}
+    arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_refsys_list), 1)}
 
     # created a *threaded* io manager
     def close():
         global io_manager
         io_manager.stop()
 
-    selected_arduino = None
-    def get_select_arduino_fun(arduino: Arduino):
-        def select_arduino():
-            global selected_arduino
-            print(f"Selected {arduino}")
-            selected_arduino = arduino
-        return select_arduino
-
-    def rotate(clockwise: bool):
-        global selected_arduino
-        if selected_arduino is None:
+    select_arduino = None
+    def select_arduino(arduino: Arduino):
+        global select_arduino
+        select_arduino = arduino
+    
+    def pan_rotate(clockwise):
+        global select_arduino
+        if select_arduino is None:
             return
-        rf = selected_arduino.reference_frame.parent
-        translations = selected_arduino.reference_frame.kwargs["translations"]
-        rotations = selected_arduino.reference_frame.kwargs["rotations"]
-        new_rotations = []
-        for ax1, ax2, angle in rotations:
-            if ax1 == 2 and ax2 == 0:
-                delta = 0.01 if clockwise else -0.01
-                new_rotations.append((ax1, ax2, angle + delta))
-            else:
-                new_rotations.append((ax1, ax2, angle))
-        rotated_rf = ReferenceFrame(
-            "arduino_1_frame",
-            translations=translations,
-            rotations=new_rotations,
-            parent=rf,
-        )
-        selected_arduino.reference_frame.remove()
-        selected_arduino.reference_frame = rotated_rf
+        pan_refsys = select_arduino.ref_sys_list[1]
+        if clockwise:
+            rot = pan_refsys._to_parent.increment_angle(-5.)
+        else:
+            rot = pan_refsys._to_parent.increment_angle(5.)
+        pan_refsys.from_parent_transformation = rot
+    
+    def tilt_rotate(clockwise):
+        global select_arduino
+        if select_arduino is None:
+            return
+        tilt_refsys = select_arduino.ref_sys_list[2]
+        if clockwise:
+            rot = tilt_refsys._to_parent.increment_angle(-5.)
+        else:
+            rot = tilt_refsys._to_parent.increment_angle(5.)
+        tilt_refsys.from_parent_transformation = rot
 
     key_callback_dict = {
         "q": close,
@@ -101,16 +98,24 @@ def main():
         "s": engine.select_down,
 
         # Arduino calibration
-        "m": lambda: rotate(True),
-        "n": lambda: rotate(False),
+
+        # pos
+
+
+        # pan
+        "m": lambda: partial(pan_rotate, clockwise=False),
+        "n": lambda: partial(pan_rotate, clockwise=True),
+
+        #tilt
+        "k": lambda: partial(tilt_rotate, clockwise=False),
+        "j": lambda: partial(tilt_rotate, clockwise=True),
     }
 
     maiusc_digits = ["!", "\"", "£"]
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[str(i)] = engine.set_target
         if str(i) in arduinos.keys():
-            key_callback_dict[maiusc_digits[i-1]] = get_select_arduino_fun(arduinos[str(i)])
-        
+            key_callback_dict[maiusc_digits[i-1]] = partial(select_arduino, arduinos[str(i)])
 
     io_manager = IOManager(
         src=0, name="Multi Tracking", key_callback_dict=key_callback_dict
@@ -126,9 +131,9 @@ def main():
             if target is not None:
                 arduino.send_coordinates(target)
             else:
-                target = ReferenceFrameAwareVector(
-                    vector=np.array([0., 0., 1.]),
-                    reference_frame=arduino.reference_frame,
+                target = Vector(
+                    array=np.array([0., 0., 1.]),
+                    reference_system=arduino.ref_sys_list[-1],
                 )
                 arduino.send_coordinates(target)
 
