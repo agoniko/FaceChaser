@@ -64,7 +64,7 @@ class Rotation(Transformation):
     """Performs anticlockwise rotation"""
     ax_to_int = {'x': 0, 'y': 1, 'z': 2}
     def __init__(self, ax1: str, ax2: str, angle: float, unit: str):
-        """Performs clockwise rotation
+        """Performs anticlockwise rotation
         
         Rotation is performed on the oriented plane ax1ax2. Axes must be different.
 
