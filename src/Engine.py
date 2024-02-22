@@ -1,21 +1,21 @@
-from typing import Tuple, List
-from src.person import Person
-import numpy as np
-import cv2
 import copy
-import src.utils as utils
-from src.timethis import timethis
+from typing import Tuple, List
 
-import torch
+
 from batch_face import RetinaFace
 from batch_face.face_detection.alignment import load_net
-from torchvision.transforms import Lambda, Compose
-from src.net_sphere import sphere20a
+import cv2
+import numpy as np
 from skimage import transform
+import torch
+from torchvision.transforms import Lambda, Compose
 
+from src.net_sphere import sphere20a
+from src.person import Person
 from src.refsys.system import ReferenceSystem
 from src.refsys.vector import Vector
-
+import src.utils as utils
+from src.timethis import timethis
 
 def override_init_RetinaFace(
     self,
