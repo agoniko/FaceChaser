@@ -20,7 +20,7 @@ computer_basis = [
     Vector(np.array([0., 0., l]), computer_refsys),
 ]
 
-@timethis # TODO duration of this function increases in time, fix it
+@timethis
 def get_top_view_image(width: int, height: int) -> np.ndarray:
     arduino_1_center = Vector(np.array([0., 0., 0.]), arduino_1_refsys)
     arduino_1_basis = [
@@ -42,13 +42,15 @@ def get_top_view_image(width: int, height: int) -> np.ndarray:
     x0 = int(compute_center.array[0])
     y0 = int(compute_center.array[2])
 
-    arduino_2_center.to(visualization_refsys)
-    a2x0 = int(arduino_2_center.array[0])
-    a2y0 = int(arduino_2_center.array[2])
-
     arduino_1_center.to(visualization_refsys)
     a1x0 = int(arduino_1_center.array[0])
     a1y0 = int(arduino_1_center.array[2])
+    arduino_1_center.detach()
+
+    arduino_2_center.to(visualization_refsys)
+    a2x0 = int(arduino_2_center.array[0])
+    a2y0 = int(arduino_2_center.array[2])
+    arduino_2_center.detach()
 
     # Draw computer to arduino lines
     cv2.line(image, (x0, y0), (a1x0, a1y0), (0, 0, 255), thickness)
