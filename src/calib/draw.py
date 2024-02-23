@@ -5,6 +5,7 @@ from . import computer_refsys, arduino_1_refsys, arduino_2_refsys
 from src.refsys.system import ReferenceSystem
 from src.refsys.transformations import Translation
 from src.refsys.vector import Vector
+from src.timethis import timethis
 
 
 translation = Translation(-30., 10., -5.)
@@ -19,6 +20,7 @@ computer_basis = [
     Vector(np.array([0., 0., l]), computer_refsys),
 ]
 
+@timethis
 def get_top_view_image(width: int, height: int) -> np.ndarray:
     arduino_1_center = Vector(np.array([0., 0., 0.]), arduino_1_refsys)
     arduino_1_basis = [
@@ -58,7 +60,6 @@ def get_top_view_image(width: int, height: int) -> np.ndarray:
         x = int(b.array[0])
         y = int(b.array[2])
         cv2.line(image, (x0, y0), (x, y), (255, 0, 0), thickness)
-        b.detach()
     
     # Draw arduino 1
     for b in arduino_1_basis:

@@ -95,8 +95,6 @@ class ReferenceSystem:
             raise ValueError("Cannot reassign the same transformation, make sure to make a copy first")
 
         children_vectors = self._get_children_vectors()
-        print(self, children_vectors)
-        raise
 
         # Bring each vector array back to the parent of this reference system
         for v, path in children_vectors:
@@ -111,7 +109,6 @@ class ReferenceSystem:
         for v, path in children_vectors:
             for rf in path:
                 v.array = rf._from_parent(v.array)
-        raise KeyError
     
     def __repr__(self):
         return f"{self.name}__reference_system"

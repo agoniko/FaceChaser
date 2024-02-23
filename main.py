@@ -7,7 +7,7 @@ import json
 import numpy as np
 import cv2
 
-from src.arduino import Arduino
+from src.Arduino import Arduino
 from src.calib import computer_refsys
 from src.calib import pos_1_refsys
 from src.calib import pos_2_refsys
@@ -17,7 +17,7 @@ from src.calib import tilt_1_refsys
 from src.calib import tilt_2_refsys
 from src.calib import arduino_1_refsys
 from src.calib import arduino_2_refsys
-from src.engine import Engine
+from src.Engine import Engine
 from src.iomanager import IOManager
 from src.refsys.vector import Vector
 from src.utils import display_results
@@ -59,31 +59,31 @@ def main():
         global io_manager
         io_manager.stop()
 
-    select_arduino = None
+    selected_arduino = None
     def select_arduino(arduino: Arduino):
-        global select_arduino
-        select_arduino = arduino
+        nonlocal selected_arduino
+        selected_arduino = arduino
     
     def pan_rotate(clockwise):
-        global select_arduino
-        if select_arduino is None:
+        nonlocal selected_arduino
+        if selected_arduino is None:
             return
-        pan_refsys = select_arduino.ref_sys_list[1]
+        pan_refsys = selected_arduino.ref_sys_list[1]
         if clockwise:
-            rot = pan_refsys._to_parent.increment_angle(-5.)
+            rot = pan_refsys._to_parent.increment_angle(1.)
         else:
-            rot = pan_refsys._to_parent.increment_angle(5.)
+            rot = pan_refsys._to_parent.increment_angle(-1.)
         pan_refsys.from_parent_transformation = rot
     
     def tilt_rotate(clockwise):
-        global select_arduino
-        if select_arduino is None:
+        nonlocal selected_arduino
+        if selected_arduino is None:
             return
-        tilt_refsys = select_arduino.ref_sys_list[2]
+        tilt_refsys = selected_arduino.ref_sys_list[2]
         if clockwise:
-            rot = tilt_refsys._to_parent.increment_angle(-5.)
+            rot = tilt_refsys._to_parent.increment_angle(-1.)
         else:
-            rot = tilt_refsys._to_parent.increment_angle(5.)
+            rot = tilt_refsys._to_parent.increment_angle(1.)
         tilt_refsys.from_parent_transformation = rot
 
     key_callback_dict = {
