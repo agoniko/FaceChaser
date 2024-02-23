@@ -7,7 +7,7 @@ from .system import ReferenceSystem
 class Vector:
     """Class representing a vector defined in a reference system.
     
-    It is has a fixed position w.r.t. the root reference system.
+    It is has a fixed position w.r.t. the root absolute reference system.
     """
 
     def __init__(self, array: np.ndarray, reference_system: ReferenceSystem):
@@ -45,7 +45,7 @@ class Vector:
                 continue
             if rs1 is rs2.parent:
                 rs2.from_parent(self)
-            elif rs1 in rs2._children.values():
+            elif rs1 in rs2._children:
                 rs1.to_parent(self)
     
     def detach(self) -> None:

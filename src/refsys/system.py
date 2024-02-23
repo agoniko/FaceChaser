@@ -1,25 +1,17 @@
-from typing import List, TypeVar
+from typing import List, TypeVar, Self
 
 from .transformations import Transformation
 
-TReferenceSystem = TypeVar("TReferenceSystem", bound="ReferenceSystem")
-
 class ReferenceSystem:
     """Defines a space in which a vector lives."""
-    _ref_sys_graph = dict()
-    _roots = dict()
     def __init__(self, name: str):
-        """Creates a new root reference system"""
-        if name in ReferenceSystem._ref_sys_graph.keys():
-            raise ValueError(f"A reference system named {name} already exists")
+        """Creates an absolute reference system"""
         self.name = name
         self._parent = None
         self._from_parent = None
         self._to_parent = None
-        self._children = dict()
+        self._children = []
         self._vectors = []
-        ReferenceSystem._ref_sys_graph[name] = self
-        ReferenceSystem._roots[name] = self
 
     @property
     def parent(self):
@@ -33,7 +25,7 @@ class ReferenceSystem:
         self,
         name: str,
         transformation: Transformation,
-    ) -> TReferenceSystem:
+    ) -> Self:
         """Creates a new reference system from self by applying the transformation.
         
         If v is a Vector in the returned reference system and t is the transformation,
@@ -43,8 +35,7 @@ class ReferenceSystem:
         rf._parent = self
         rf._from_parent = transformation.inverse
         rf._to_parent = transformation
-        assert name not in self._children.keys(), f"{name} should not be in {self.name} children"
-        self._children[name] = rf
+        self._children.append(rf)
         return rf
 
     def to_parent(self, v):
@@ -83,7 +74,7 @@ class ReferenceSystem:
         for v in self._vectors:
             children_vectors.append((v, path))
         
-        for rf in self._children.values():
+        for rf in self._children:
             rf._get_children_vectors_recursive(children_vectors, path)
     
     @from_parent_transformation.setter
@@ -113,7 +104,7 @@ class ReferenceSystem:
     def __repr__(self):
         return f"{self.name}__reference_system"
     
-    def path_to(self, rf) -> List[TReferenceSystem] | None:
+    def path_to(self, rf) -> List[Self] | None:
         """Returns a path to rf, not guaranteed to be minimal and repetitions can appear"""
         root_path = [self]
         root = self
@@ -128,7 +119,7 @@ class ReferenceSystem:
         
         return root_path + children_path
     
-    def _children_path_to(self, rf: TReferenceSystem) -> List[TReferenceSystem] | None:
+    def _children_path_to(self, rf: Self) -> List[Self] | None:
         """Recursively search a path from self to rf looking at children.
         
         Returns:
@@ -141,7 +132,7 @@ class ReferenceSystem:
         if len(self._children) == 0:
             return None
         
-        for _rf in self._children.values():
+        for _rf in self._children:
             _path = _rf._children_path_to(rf)
             if _path is None:
                 continue
