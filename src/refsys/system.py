@@ -4,14 +4,47 @@ from .transformations import Transformation
 
 class ReferenceSystem:
     """Defines a space in which a vector lives."""
-    def __init__(self, name: str):
-        """Creates an absolute reference system"""
+    def __init__(
+            self,
+            name: str,
+            apply: Transformation | None = None,
+            to: Self | None = None,
+        ):
+        """Creates a reference system.
+        
+        Creates an absolute reference system if only a name is provided.
+        Otherwise creates a reference system applying the transformation provided to
+        the reference system provided.
+
+        Args:
+            name:
+                just a name
+            apply:
+                a transformation to apply to "to"
+            to:
+                a reference system to which apply "apply"
+        """
         self.name = name
-        self._parent = None
-        self._from_parent = None
-        self._to_parent = None
-        self._children = []
-        self._vectors = []
+
+        if apply is None and to is None:
+            self._parent = None
+            self._from_parent = None
+            self._to_parent = None
+            self._children = []
+            self._vectors = []
+        else:
+            if apply is not None:
+                if to is None:
+                    raise ValueError("To what reference system apply the transformation?")
+            
+            if to is not None:
+                if apply is None:
+                    raise ValueError("Apply what?")
+            
+            self._parent = to
+            self._from_parent = apply.inverse
+            self._to_parent = apply
+            to._children.append(self)
 
     @property
     def parent(self):
@@ -39,7 +72,7 @@ class ReferenceSystem:
         return rf
 
     def to_parent(self, v):
-        """Move v to the parent of self. v must live in self"""
+        """Represent v in the parent of self. v must live in self"""
         if v.reference_system is not self:
             raise ValueError(f"v must live in {self.name}")
         if self._parent is None:
@@ -50,7 +83,7 @@ class ReferenceSystem:
         self._parent._vectors.append(v)
 
     def from_parent(self, v):
-        """Move v to self. v must live in self's parent"""
+        """Represent v in self. v must live in self's parent"""
         if v.reference_system is not self._parent:
             raise ValueError(f"v must live in {self._parent.name}")
         v.array = self._from_parent(v.array)
