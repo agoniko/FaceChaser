@@ -3,7 +3,7 @@ numpy==1.24.3
 opencv_contrib_python==4.7.0.72
 opencv_python==4.8.1.78
 pyserial==3.5
-skimage==0.0
+scikit-image==0.22.0
 torch==2.0.1
 torchvision==0.15.2
 tqdm==4.65.0
