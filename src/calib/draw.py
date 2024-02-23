@@ -20,7 +20,7 @@ computer_basis = [
     Vector(np.array([0., 0., l]), computer_refsys),
 ]
 
-@timethis
+@timethis # TODO duration of this function increases in time, fix it
 def get_top_view_image(width: int, height: int) -> np.ndarray:
     arduino_1_center = Vector(np.array([0., 0., 0.]), arduino_1_refsys)
     arduino_1_basis = [
