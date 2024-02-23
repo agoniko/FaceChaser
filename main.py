@@ -148,18 +148,4 @@ if __name__ == "__main__":
                 )
                 arduino.send_coordinates(target)
 
-        # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)
-
-    print("Total number of frames: ", engine.tot_frames)
-    print("Correctly tracked frames: ", engine.correctly_tracked / 2)
-    print("Wrongly Tracked: ", engine.retina_detected2_faces - engine.correctly_tracked)
-    print("Embeddings under threshold: ", engine.frames_embeddings_under_threshold / 2)
-
-    print(
-        "Ratio correctly tracked: ", (engine.correctly_tracked / 2) / engine.tot_frames
-    )
-    print(
-        "Usefullness of matching: ",
-        engine.frames_embeddings_under_threshold / engine.correctly_tracked,
-    )
