@@ -5,7 +5,10 @@ import numpy as np
 from .system import ReferenceSystem
 
 class Vector:
-    """Class representing a vector defined in a reference system"""
+    """Class representing a vector defined in a reference system.
+    
+    It is has a fixed position w.r.t. the root reference system.
+    """
 
     def __init__(self, array: np.ndarray, reference_system: ReferenceSystem):
         if not isinstance(array, np.ndarray):
