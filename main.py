@@ -64,7 +64,23 @@ def main():
         nonlocal selected_arduino
         selected_arduino = arduino
     
-    def pan_rotate(clockwise):
+    def pos_move(dir: str):
+        nonlocal selected_arduino
+        if selected_arduino is None:
+            return
+        pos_refsys = selected_arduino.ref_sys_list[0]
+        match dir:
+            case 'right':
+                translation = pos_refsys._to_parent.increment('x', 1.)
+            case 'left':
+                translation = pos_refsys._to_parent.increment('x', -1.)
+            case 'up':
+                translation = pos_refsys._to_parent.increment('z', -1.)
+            case 'down':
+                translation = pos_refsys._to_parent.increment('z', 1.)
+        pos_refsys.from_parent_transformation = translation
+    
+    def pan_rotate(clockwise: bool):
         nonlocal selected_arduino
         if selected_arduino is None:
             return
@@ -75,7 +91,7 @@ def main():
             rot = pan_refsys._to_parent.increment_angle(-1.)
         pan_refsys.from_parent_transformation = rot
     
-    def tilt_rotate(clockwise):
+    def tilt_rotate(clockwise: bool):
         nonlocal selected_arduino
         if selected_arduino is None:
             return
@@ -87,35 +103,38 @@ def main():
         tilt_refsys.from_parent_transformation = rot
 
     key_callback_dict = {
-        "q": close,
+        ord("q"): close,
 
         # Target selection
-        "r": engine.select_random,
-        "u": engine.unset_targets,
-        "a": engine.select_left,
-        "d": engine.select_right,
-        "w": engine.select_up,
-        "s": engine.select_down,
+        ord("r"): engine.select_random,
+        ord("u"): engine.unset_targets,
+        ord("a"): engine.select_left,
+        ord("d"): engine.select_right,
+        ord("w"): engine.select_up,
+        ord("s"): engine.select_down,
 
         # Arduino calibration
 
         # pos
-
+        ord('p'): partial(pos_move, dir='up'),
+        ord('.'): partial(pos_move, dir='down'),
+        ord('l'): partial(pos_move, dir='left'),
+        ord('ò'): partial(pos_move, dir='right'),
 
         # pan
-        "m": partial(pan_rotate, clockwise=False),
-        "n": partial(pan_rotate, clockwise=True),
+        ord("m"): partial(pan_rotate, clockwise=False),
+        ord("n"): partial(pan_rotate, clockwise=True),
 
         #tilt
-        "k": partial(tilt_rotate, clockwise=False),
-        "j": partial(tilt_rotate, clockwise=True),
+        ord("k"): partial(tilt_rotate, clockwise=False),
+        ord("j"): partial(tilt_rotate, clockwise=True),
     }
 
     maiusc_digits = ["!", "\"", "£"]
     for i in range(1, MAX_TRACKED_PERSONS + 1):
-        key_callback_dict[str(i)] = engine.set_target
+        key_callback_dict[ord(str(i))] = engine.set_target
         if str(i) in arduinos.keys():
-            key_callback_dict[maiusc_digits[i-1]] = partial(select_arduino, arduinos[str(i)])
+            key_callback_dict[ord(maiusc_digits[i-1])] = partial(select_arduino, arduinos[str(i)])
 
     io_manager = IOManager(
         src=0, name="Multi Tracking", key_callback_dict=key_callback_dict

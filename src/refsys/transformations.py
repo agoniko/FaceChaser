@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Self
 
 import numpy as np
 
@@ -147,7 +148,7 @@ class Rotation(Transformation):
     def copy(self):
         return Rotation(self._ax1, self._ax2, self._angle, self._unit)
 
-    def increment_angle(self, amount: float):
+    def increment_angle(self, amount: float) -> Self:
         return Rotation(self._ax1, self.ax2, self._angle + amount, self._unit)
         
     def _compute_direct(self):
@@ -231,3 +232,14 @@ class Translation(Transformation):
         # The matrix is orthonormal
         self.inverse_translation_array = - self.translation_array.copy()
         self._inverse = lambda array: self.inverse_translation_array + array
+
+    def increment(self, ax: str, amount: float) -> Self:
+        match ax:
+            case 'x':
+                return Translation(self._x + amount, self._y, self._z)
+            case 'y':
+                return Translation(self._x, self._y + amount, self._z)
+            case 'z':
+                return Translation(self._x, self._y, self._z + amount)
+            case _:
+                raise ValueError(f"ax must be either x, y or z, instead got {ax}")

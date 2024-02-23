@@ -73,11 +73,10 @@ class IOManager:
         else:
             cv2.imshow(self.name, self.starting_frame)
         key = cv2.waitKey(1) & 0xFF
-
         for k, fun in self.key_callback_dict.items():
-            if key == ord(k):
-                if k.isdigit():
-                    fun(str(k))
+            if key == k:
+                if chr(k).isdigit():
+                    fun(chr(k))
                 else:
                     fun()
 
