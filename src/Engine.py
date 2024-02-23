@@ -1,5 +1,5 @@
 from typing import Tuple, List
-from src.Person import Person
+from src.person import person
 import numpy as np
 import cv2
 import copy

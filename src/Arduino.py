@@ -2,9 +2,6 @@ import serial
 import numpy as np
 from src.reference_frame_aware_vector import ReferenceFrame, ReferenceFrameAwareVector
 
-# Establish serial communication
-
-
 class Arduino:
     def __init__(self, serial_port, reference_frame: ReferenceFrame):
         self.ser = serial.Serial(serial_port, 9600, timeout=1)

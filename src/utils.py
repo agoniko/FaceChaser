@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from src.Person import Person
+from src.person import person
 import time
 from typing import Dict
 
