@@ -44,10 +44,44 @@ class Vector:
             if rs1 is rs2:
                 continue
             if rs1 is rs2.parent:
-                rs2.from_parent(self)
+                self.to_child(rs2)
             elif rs1 in rs2._children:
-                rs1.to_parent(self)
-    
+                self.to_parent()
+
+    def to_parent(self) -> None:
+        """Represent v in the parent reference system"""
+        if self.reference_system._parent is None:
+            raise RuntimeError(f"{self} is in a root reference system")
+        
+        # Change the representation
+        self.array = self.reference_system._to_parent(self.array)
+
+        # Remove from reference system
+        self.reference_system._vectors.remove(self)
+
+        # Add to parent reference system
+        self.reference_system._parent._vectors.append(self)
+
+        # Change reference system
+        self.reference_system = self.reference_system._parent        
+
+    def to_child(self, child_rf: ReferenceSystem) -> None:
+        """Represent v in a child reference system"""
+        if child_rf not in self.reference_system._children:
+            raise ValueError(f"child_rf must be a child of {self.reference_system}")
+        
+        # Change the representation
+        self.array = child_rf._from_parent(self.array)
+
+        # Remove from reference system
+        self.reference_system._vectors.remove(self)
+
+        # Add to child reference system
+        child_rf._vectors.append(self)
+
+        # Change reference system
+        self.reference_system = child_rf    
+
     def detach(self) -> None:
         """Detach self from its reference system, make it possible to garbage collect it"""
         if self.reference_system is None:

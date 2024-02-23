@@ -54,6 +54,9 @@ class ReferenceSystem:
     def parent(self):
         raise TypeError("A reference system's parent cannot be changed")
 
+    def transform(self, transformation: Transformation) -> None:
+        raise NotImplementedError
+    
     def apply(
         self,
         name: str,
@@ -70,26 +73,6 @@ class ReferenceSystem:
         rf._to_parent = transformation
         self._children.append(rf)
         return rf
-
-    def to_parent(self, v):
-        """Represent v in the parent of self. v must live in self"""
-        if v.reference_system is not self:
-            raise ValueError(f"v must live in {self.name}")
-        if self._parent is None:
-            raise RuntimeError(f"{self.name} is root")
-        v.array = self._to_parent(v.array)
-        v.reference_system = self._parent
-        self._vectors.remove(v)
-        self._parent._vectors.append(v)
-
-    def from_parent(self, v):
-        """Represent v in self. v must live in self's parent"""
-        if v.reference_system is not self._parent:
-            raise ValueError(f"v must live in {self._parent.name}")
-        v.array = self._from_parent(v.array)
-        v.reference_system = self
-        self._vectors.append(v)
-        self._parent._vectors.remove(v)
 
     @property
     def from_parent_transformation(self):
