@@ -11,6 +11,7 @@ class Arduino:
     def __init__(self, serial_port, ref_sys_list: List[ReferenceSystem]):
         if serial_port != "virtual":
             self.ser = serial.Serial(serial_port, 9600, timeout=1)
+            self.virtual = False
         else:
             self.virtual = True
         self.ref_sys_list = ref_sys_list
