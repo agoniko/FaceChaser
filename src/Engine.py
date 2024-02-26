@@ -11,7 +11,7 @@ import torch
 from torchvision.transforms import Lambda, Compose
 
 from src.net_sphere import sphere20a
-from src.person import Person
+from src.Person import Person
 from src.refsys.system import ReferenceSystem
 from src.refsys.vector import Vector
 import src.utils as utils

@@ -22,6 +22,7 @@ from src.iomanager import IOManager
 from src.refsys.vector import Vector
 from src.utils import display_results
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rescale", type=float, default=0.4)
@@ -45,14 +46,23 @@ def main():
     else:
         args.serial_ports = []
         MAX_TRACKED_PERSONS = 2
-            
+
     arduino_refsys_list = [
         (pos_1_refsys, pan_1_refsys, tilt_1_refsys, arduino_1_refsys),
         (pos_2_refsys, pan_2_refsys, tilt_2_refsys, arduino_2_refsys),
     ]
-    engine = Engine(computer_refsys, DEVICE, RESCALE_FACTOR, SIMILARIY_THRESHOLD, MAX_TRACKED_PERSONS)
+    engine = Engine(
+        computer_refsys,
+        DEVICE,
+        RESCALE_FACTOR,
+        SIMILARIY_THRESHOLD,
+        MAX_TRACKED_PERSONS,
+    )
 
-    arduinos = {f"{i}": Arduino(port, rf) for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_refsys_list), 1)}
+    arduinos = {
+        f"{i}": Arduino(port, rf)
+        for i, (port, rf) in enumerate(zip(args.serial_ports, arduino_refsys_list), 1)
+    }
 
     # created a *threaded* io manager
     def close():
@@ -60,51 +70,51 @@ def main():
         io_manager.stop()
 
     selected_arduino = None
+
     def select_arduino(arduino: Arduino):
         nonlocal selected_arduino
         selected_arduino = arduino
-    
+
     def pos_move(dir: str):
         nonlocal selected_arduino
         if selected_arduino is None:
             return
         pos_refsys = selected_arduino.ref_sys_list[0]
         match dir:
-            case 'right':
-                translation = pos_refsys._to_parent.increment('x', 1.)
-            case 'left':
-                translation = pos_refsys._to_parent.increment('x', -1.)
-            case 'up':
-                translation = pos_refsys._to_parent.increment('z', -1.)
-            case 'down':
-                translation = pos_refsys._to_parent.increment('z', 1.)
+            case "right":
+                translation = pos_refsys._to_parent.increment("x", 1.0)
+            case "left":
+                translation = pos_refsys._to_parent.increment("x", -1.0)
+            case "up":
+                translation = pos_refsys._to_parent.increment("z", -1.0)
+            case "down":
+                translation = pos_refsys._to_parent.increment("z", 1.0)
         pos_refsys.from_parent_transformation = translation
-    
+
     def pan_rotate(clockwise: bool):
         nonlocal selected_arduino
         if selected_arduino is None:
             return
         pan_refsys = selected_arduino.ref_sys_list[1]
         if clockwise:
-            rot = pan_refsys._to_parent.increment_angle(1.)
+            rot = pan_refsys._to_parent.increment_angle(1.0)
         else:
-            rot = pan_refsys._to_parent.increment_angle(-1.)
+            rot = pan_refsys._to_parent.increment_angle(-1.0)
         pan_refsys.from_parent_transformation = rot
-    
+
     def tilt_rotate(clockwise: bool):
         nonlocal selected_arduino
         if selected_arduino is None:
             return
         tilt_refsys = selected_arduino.ref_sys_list[2]
         if clockwise:
-            rot = tilt_refsys._to_parent.increment_angle(-1.)
+            rot = tilt_refsys._to_parent.increment_angle(-1.0)
         else:
-            rot = tilt_refsys._to_parent.increment_angle(1.)
+            rot = tilt_refsys._to_parent.increment_angle(1.0)
         tilt_refsys.from_parent_transformation = rot
 
     key_callback_dict = {
         ord("q"): close,
-
         # Target selection
         ord("r"): engine.select_random,
         ord("u"): engine.unset_targets,
@@ -112,20 +122,16 @@ def main():
         ord("d"): engine.select_right,
         ord("w"): engine.select_up,
         ord("s"): engine.select_down,
-
         # Arduino calibration
-
         # pos
-        ord('p'): partial(pos_move, dir='up'),
-        ord('.'): partial(pos_move, dir='down'),
-        ord('l'): partial(pos_move, dir='left'),
-        ord('ò'): partial(pos_move, dir='right'),
-
+        ord("p"): partial(pos_move, dir="up"),
+        ord("ò"): partial(pos_move, dir="down"),
+        ord("l"): partial(pos_move, dir="left"),
+        ord("à"): partial(pos_move, dir="right"),
         # pan
         ord("m"): partial(pan_rotate, clockwise=False),
         ord("n"): partial(pan_rotate, clockwise=True),
-
-        #tilt
+        # tilt
         ord("k"): partial(tilt_rotate, clockwise=False),
         ord("j"): partial(tilt_rotate, clockwise=True),
     }
@@ -134,7 +140,9 @@ def main():
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[ord(str(i))] = engine.set_target
         if str(i) in arduinos.keys():
-            key_callback_dict[ord(maiusc_digits[i-1])] = partial(select_arduino, arduinos[str(i)])
+            key_callback_dict[ord(maiusc_digits[i - 1])] = partial(
+                select_arduino, arduinos[str(i)]
+            )
 
     io_manager = IOManager(
         src=0, name="Multi Tracking", key_callback_dict=key_callback_dict
@@ -151,13 +159,14 @@ def main():
                 arduino.send_coordinates(target)
             else:
                 target = Vector(
-                    array=np.array([0., 0., 1.]),
+                    array=np.array([0.0, 0.0, 1.0]),
                     reference_system=arduino.ref_sys_list[-1],
                 )
                 arduino.send_coordinates(target)
 
         # TODO: Add a way to select a person by clicking on them
         io_manager.step(frame)
+
 
 if __name__ == "__main__":
     main()
