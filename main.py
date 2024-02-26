@@ -130,7 +130,7 @@ def main():
         ord("j"): partial(tilt_rotate, clockwise=True),
     }
 
-    maiusc_digits = ["!", "\"", "£"]
+    maiusc_digits = ["!", '"', "£"]
     for i in range(1, MAX_TRACKED_PERSONS + 1):
         key_callback_dict[ord(str(i))] = engine.set_target
         if str(i) in arduinos.keys():
