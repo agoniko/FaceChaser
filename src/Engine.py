@@ -1,4 +1,5 @@
 import copy
+import json
 from typing import Tuple, List
 
 
@@ -118,8 +119,19 @@ class Engine(metaclass=Singleton):
         self.tracked_persons = dict()
         self.selected_person = None
 
+        # Camera parameters
+        with open("config.json", "r") as fp:
+            params = json.load(fp)
+        camera = params['camera']
+        self.width = camera['width']
+        self.height = camera['height']
+        self.face_height = camera["face_height"]
+        self.reference_face_pixel_height = camera["reference_face_pixel_height"]
+        self.reference_depth = camera["reference_depth"]
+
         # Flag for tracking with embeddings or not (heuristic)
         self.track_with_embeddings = False
+        
         # Flags for selecting a person
         self.random_selection = False
         self.right = False
@@ -463,16 +475,12 @@ class Engine(metaclass=Singleton):
             coords[0] /= self.rescale_factor
             coords[1] /= self.rescale_factor
             coords[2] /= self.rescale_factor
-            
-            face_height = 25.
-            reference_face_pixel_height = 480.
-            reference_depth = 19.
 
-            focal = reference_depth * reference_face_pixel_height / face_height
-            z = focal * face_height / coords[2]
-            cm_per_pixel = (z / reference_depth) * (face_height / reference_face_pixel_height)
-            x_max = 640 * cm_per_pixel # TODO image shape
-            y_max = 480 * cm_per_pixel
+            focal = self.reference_depth * self.reference_face_pixel_height / self.face_height
+            z = focal * self.face_height / coords[2]
+            cm_per_pixel = (z / self.reference_depth) * (self.face_height / self.reference_face_pixel_height)
+            x_max = self.width * cm_per_pixel
+            y_max = self.height * cm_per_pixel
             x = coords[0] * cm_per_pixel - x_max/2.
             y = coords[1] * cm_per_pixel - y_max/2.
 

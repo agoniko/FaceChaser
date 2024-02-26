@@ -16,10 +16,6 @@ class Arduino:
             self.virtual = True
         self.ref_sys_list = ref_sys_list
 
-    def set_computer_position(self, arduino_computer: np.ndarray):
-        """Set computer position with respect to arduino reference system"""
-        self.arduino_computer = arduino_computer
-
     def send_coordinates(self, target: Vector):
         """Send pan and tilt angles in degrees through serial communication"""
         target.to(self.ref_sys_list[-1])
