@@ -66,7 +66,7 @@ def main():
 
     # created a *threaded* io manager
     def close():
-        global io_manager
+        nonlocal io_manager
         io_manager.stop()
 
     selected_arduino = None

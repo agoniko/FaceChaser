@@ -7,6 +7,7 @@ import cv2
 
 import src.calib.draw as draw
 
+
 class IOManager:
     def __init__(
         self,
@@ -61,11 +62,12 @@ class IOManager:
         self.show_frame = self._overlay_fps(image)
 
         if self.ready():
+            panels_size = image.shape[1] // 4
             calib_top_view, calib_side_view = draw.get_calib_views(
-                (self.show_frame.shape[1], 200), # top view
-                (200, self.show_frame.shape[0]), # side view
+                (self.show_frame.shape[1], panels_size),  # top view
+                (panels_size, self.show_frame.shape[0]),  # side view
             )
-            logo = cv2.resize(self.starting_frame, (200, 200))
+            logo = cv2.resize(self.starting_frame, (panels_size, panels_size))
             side_panel = np.vstack((calib_side_view, logo))
             self.show_frame = np.vstack((self.show_frame, calib_top_view))
             self.show_frame = np.hstack((self.show_frame, side_panel))

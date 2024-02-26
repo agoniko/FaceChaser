@@ -5,6 +5,7 @@ import numpy as np
 
 from src.refsys.system import ReferenceSystem
 from src.refsys.vector import Vector
+from src.timethis import timethis
 
 
 class Arduino:
@@ -16,6 +17,7 @@ class Arduino:
             self.virtual = True
         self.ref_sys_list = ref_sys_list
 
+    @timethis
     def send_coordinates(self, target: Vector):
         """Send pan and tilt angles in degrees through serial communication"""
         target.to(self.ref_sys_list[-1])
